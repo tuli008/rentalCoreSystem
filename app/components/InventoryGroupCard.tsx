@@ -142,6 +142,7 @@ export default function InventoryGroupCard({
   const [createItemError, setCreateItemError] = useState<string | null>(null);
   const [showCreateItemModal, setShowCreateItemModal] = useState(false);
   const [pendingItemName, setPendingItemName] = useState("");
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Only render DndContext on client to avoid hydration mismatch
   useEffect(() => {
@@ -752,9 +753,35 @@ export default function InventoryGroupCard({
   return (
     <div className="mb-10 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-          {group.name}
-        </h2>
+        <div className="flex items-center gap-2 flex-1">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+            aria-label={isCollapsed ? "Expand group" : "Collapse group"}
+          >
+            <svg
+              className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${
+                isCollapsed ? "" : "rotate-90"
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+            {group.name}
+          </h2>
+          <span className="text-sm text-gray-500">
+            ({items.length} {items.length === 1 ? "item" : "items"})
+          </span>
+        </div>
         {!isUncategorized && (
           <button
             onClick={() => {
@@ -795,7 +822,9 @@ export default function InventoryGroupCard({
         </div>
       )}
 
-      <div className="mb-4 p-3 bg-gray-50 rounded-md">
+      {!isCollapsed && (
+        <>
+          <div className="mb-4 p-3 bg-gray-50 rounded-md">
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-2 sm:items-center">
           <input
             type="text"
@@ -901,6 +930,8 @@ export default function InventoryGroupCard({
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
 
       {/* Drawer */}
