@@ -1,6 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
+import { useMemo } from "react";
 
 interface QuoteDropZoneProps {
   isEmpty: boolean;
@@ -13,16 +14,22 @@ export default function QuoteDropZone({ isEmpty, isReadOnly = false }: QuoteDrop
     disabled: isReadOnly,
   });
 
+  // Memoize to prevent unnecessary re-renders
+  const dropZoneClasses = useMemo(() => 
+    `rounded-lg border-2 border-dashed transition-all duration-200 ${
+      isOver
+        ? "border-blue-500 bg-blue-50 scale-[1.02]"
+        : isEmpty
+          ? "border-gray-300 bg-gray-50 min-h-[200px]"
+          : "border-transparent min-h-[40px]"
+    }`,
+    [isOver, isEmpty]
+  );
+
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg border-2 border-dashed transition-all duration-200 ${
-        isOver
-          ? "border-blue-500 bg-blue-50 scale-[1.02]"
-          : isEmpty
-            ? "border-gray-300 bg-gray-50 min-h-[200px]"
-            : "border-transparent min-h-[20px]"
-      }`}
+      className={dropZoneClasses}
     >
       {isEmpty && (
         <div className="flex flex-col items-center justify-center h-full py-12 px-4">

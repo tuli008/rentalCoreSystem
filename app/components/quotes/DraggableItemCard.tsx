@@ -2,6 +2,7 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { useMemo } from "react";
 
 interface InventoryItem {
   id: string;
@@ -45,11 +46,13 @@ export default function DraggableItemCard({
     disabled: isReadOnly,
   });
 
-  const style = {
+  // Memoize style to prevent unnecessary re-renders
+  const dragStyle = useMemo(() => ({
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.2 : 1,
     transition: isDragging ? undefined : "opacity 0.15s ease",
-  };
+  }), [transform, isDragging]);
+
 
   const isLowStock = effectiveAvailable === 0;
   const isMediumStock = effectiveAvailable > 0 && effectiveAvailable < 5;
@@ -57,7 +60,7 @@ export default function DraggableItemCard({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={dragStyle}
       {...(isReadOnly ? {} : { ...attributes, ...listeners })}
       className={`p-4 hover:bg-gray-50 transition-colors border-b border-gray-200 last:border-b-0 ${
         isReadOnly ? "cursor-default" : "cursor-grab active:cursor-grabbing"
@@ -116,6 +119,7 @@ export default function DraggableItemCard({
         </div>
         <button
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             if (!isReadOnly) {
               onAddClick(item);

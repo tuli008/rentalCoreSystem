@@ -70,7 +70,14 @@ export default function QuoteDetailPage({
   const [isLoadingAvailabilities, setIsLoadingAvailabilities] = useState(true);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor));
+  // Configure sensors with activation distance to prevent accidental drags and improve stability
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Require 5px movement before drag starts (prevents accidental drags)
+      },
+    })
+  );
   // Local quantity state for instant UI updates (quoteItemId -> quantity string)
   const [localQuantities, setLocalQuantities] = useState<Map<string, string>>(
     new Map(),
@@ -463,6 +470,7 @@ export default function QuoteDetailPage({
     const { active } = event;
     const itemData = active.data.current;
     if (itemData?.type === "inventory-item" && itemData?.item) {
+      // Set active item immediately for drag overlay
       setActiveDraggedItem(itemData.item);
     }
   }, []);
@@ -470,67 +478,58 @@ export default function QuoteDetailPage({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     
-    // Clear active dragged item immediately to remove overlay
+    // Store item data before clearing overlay (avoid stale data)
+    const itemData = active.data.current;
+    const draggedItem = itemData?.type === "inventory-item" ? itemData.item : null;
+    
+    // Clear active dragged item immediately
     setActiveDraggedItem(null);
 
-    if (!over) return;
-
-    // Check if dropped on the quote drop zone
-    if (over.id === "quote-drop-zone") {
-      const itemData = active.data.current;
-      if (itemData?.type === "inventory-item" && itemData?.item) {
-        const draggedItemId = itemData.item.id;
-        
-        // Check if this item already exists in the quote
-        const existingItem = quote.items.find(
-          (quoteItem) => quoteItem.item_id === draggedItemId
-        );
-        
-        if (existingItem) {
-          // Item already exists - defer all UI updates until after drag overlay is cleared
-          // Use double requestAnimationFrame to ensure drag overlay is fully removed
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              // Set highlight state
-              setHighlightedItemId(existingItem.id);
-              
-              // Scroll to the existing item after highlight is set
-              setTimeout(() => {
-                const itemElement = document.getElementById(`quote-item-${existingItem.id}`);
-                if (itemElement) {
-                  itemElement.scrollIntoView({ behavior: "smooth", block: "center" });
-                }
-              }, 50);
-              
-              // Remove highlight after animation completes
-              setTimeout(() => {
-                setHighlightedItemId(null);
-              }, 2000);
-              
-              // Show message last, after all visual updates are complete
-              setTimeout(() => {
-                alert(
-                  `"${itemData.item.name}" is already in the quote. Please update the quantity of the existing item instead.`
-                );
-              }, 400);
-            });
-          });
-          return;
-        }
-        
-        // Item doesn't exist - proceed with adding it
-        // Defer modal opening to ensure smooth transition
-        requestAnimationFrame(() => {
-          setQuantityModalItem(itemData.item);
-          setQuantityModalPrice(itemData.item.price.toFixed(2));
-          setQuantityModalQuantity("1");
-          setShowQuantityModal(true);
-          // Close the add item modal if it's open
-          setShowAddItemModal(false);
-        });
-      }
+    // Early return if no valid drop target or item
+    if (!over || !draggedItem || over.id !== "quote-drop-zone") {
+      return;
     }
-  }, [quote.items]);
+
+    // Don't process if quote is read-only (check quote status directly)
+    if (quote.status === "accepted") {
+      return;
+    }
+
+    const draggedItemId = draggedItem.id;
+    
+    // Check if this item already exists in the quote
+    const existingItem = quote.items.find(
+      (quoteItem) => quoteItem.item_id === draggedItemId
+    );
+    
+    if (existingItem) {
+      // Item already exists - show feedback immediately (no delays)
+      setHighlightedItemId(existingItem.id);
+      
+      // Scroll and show message after brief delay
+      setTimeout(() => {
+        const itemElement = document.getElementById(`quote-item-${existingItem.id}`);
+        if (itemElement) {
+          itemElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        setTimeout(() => {
+          setHighlightedItemId(null);
+        }, 2000);
+        alert(
+          `"${draggedItem.name}" is already in the quote. Please update the quantity of the existing item instead.`
+        );
+      }, 100);
+      return;
+    }
+    
+    // Item doesn't exist - open modal immediately (batched state updates)
+    // React 18+ automatically batches these updates
+    setQuantityModalItem(draggedItem);
+    setQuantityModalPrice(draggedItem.price.toFixed(2));
+    setQuantityModalQuantity("1");
+    setShowQuantityModal(true);
+    setShowAddItemModal(false);
+  }, [quote.items, quote.status]);
 
   const handleQuantityModalConfirm = useCallback(async () => {
     if (!quantityModalItem) return;

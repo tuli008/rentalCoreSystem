@@ -228,6 +228,9 @@ export default function QuoteSidebar({
   };
 
   const handleAddClick = (item: InventoryItem) => {
+    if (isReadOnly) {
+      return;
+    }
     setSelectedItem(item);
     setUnitPrice(item.price.toFixed(2));
     setQuantity("1");
