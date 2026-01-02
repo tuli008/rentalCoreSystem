@@ -42,8 +42,8 @@ export default function UnitsTable({
   return (
     <div>
       <h4 className="text-sm font-semibold text-gray-700 mb-3">Units</h4>
-      <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-md">
-        <table className="w-full border-collapse text-sm">
+      <div className="max-h-96 overflow-y-auto overflow-x-auto border border-gray-200 rounded-md">
+        <table className="w-full border-collapse text-sm min-w-[600px]">
           <thead className="sticky top-0 bg-white z-10">
             <tr className="border-b border-gray-300">
               <th className="text-left py-2 px-3 font-semibold text-gray-700">
@@ -105,7 +105,7 @@ export default function UnitsTable({
                     <button
                       onClick={() => onUnitStatusChange(unit.id, unit.status)}
                       disabled={updatingUnitId === unit.id}
-                      className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 sm:px-2 sm:py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {updatingUnitId === unit.id ? "Updating..." : "Check Out"}
                     </button>
@@ -114,7 +114,7 @@ export default function UnitsTable({
                     <button
                       onClick={() => onUnitStatusChange(unit.id, unit.status)}
                       disabled={updatingUnitId === unit.id}
-                      className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 sm:px-2 sm:py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {updatingUnitId === unit.id ? "Updating..." : "Check In"}
                     </button>

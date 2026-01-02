@@ -42,11 +42,11 @@ export default function SortableItemRow({
       onClick={() => onItemClick(item)}
       className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer group"
     >
-      <td className="py-3 px-4 text-gray-900 font-medium flex items-center gap-2">
+      <td className="py-3 px-3 sm:px-4 text-gray-900 font-medium flex items-center gap-2 text-sm sm:text-base">
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
           <svg
@@ -63,14 +63,14 @@ export default function SortableItemRow({
             />
           </svg>
         </div>
-        {item.name}
+        <span className="truncate flex-1 min-w-0">{item.name}</span>
         {item.total === 0 && (
-          <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded">
+          <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded whitespace-nowrap flex-shrink-0">
             Needs stock
           </span>
         )}
       </td>
-      <td className="py-3 px-4 text-right text-gray-700 font-mono">
+      <td className="py-3 px-3 sm:px-4 text-right text-gray-700 font-mono text-sm sm:text-base whitespace-nowrap">
         {item.available} / {item.total}
       </td>
     </tr>

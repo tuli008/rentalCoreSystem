@@ -125,7 +125,7 @@ export default function ItemDetailDrawer({
 
       {/* Drawer Panel */}
       <div
-        className={`fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-full md:max-w-lg bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
           isDrawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -146,7 +146,7 @@ export default function ItemDetailDrawer({
           />
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
             <div className="space-y-6">
               {/* Badge */}
               <div>

@@ -747,16 +747,18 @@ export default function InventoryGroupCard({
   }, [localItem, units, stock]);
 
   return (
-    <div className="mb-10 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900">{group.name}</h2>
+    <div className="mb-10 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+          {group.name}
+        </h2>
         {!isUncategorized && (
           <button
             onClick={() => {
               setDeleteError(null);
               setShowDeleteGroupModal(true);
             }}
-            className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+            className="w-full sm:w-auto px-3 py-2 sm:py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
           >
             Delete Group
           </button>
@@ -849,15 +851,15 @@ export default function InventoryGroupCard({
         }}
         className="mb-4 p-3 bg-gray-50 rounded-md"
       >
-        <div className="flex gap-2 items-center flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-2 sm:items-center">
           <input type="hidden" name="group_id" value={group.id} />
           <input
             name="name"
             placeholder="New item name"
             required
-            className="flex-1 min-w-[200px] px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="flex-1 w-full sm:min-w-[200px] px-3 py-2.5 sm:py-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
           />
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer whitespace-nowrap">
             <input
               type="checkbox"
               name="is_serialized"
@@ -867,7 +869,7 @@ export default function InventoryGroupCard({
           </label>
           <button
             type="submit"
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
+            className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
           >
             Add Item
           </button>
@@ -881,13 +883,14 @@ export default function InventoryGroupCard({
           onDragEnd={handleItemDragEnd}
         >
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse min-w-[400px]">
               <thead>
                 <tr className="border-b-2 border-gray-300">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  <th className="w-4 py-3 px-3 sm:px-4"></th>
+                  <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-sm sm:text-base">
                     Item
                   </th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-700 text-sm sm:text-base">
                     Available / Total
                   </th>
                 </tr>
@@ -911,13 +914,14 @@ export default function InventoryGroupCard({
         </DndContext>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse min-w-[400px]">
             <thead>
               <tr className="border-b-2 border-gray-300">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                <th className="w-4 py-3 px-3 sm:px-4"></th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-sm sm:text-base">
                   Item
                 </th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-700 text-sm sm:text-base">
                   Available / Total
                 </th>
               </tr>
@@ -929,15 +933,16 @@ export default function InventoryGroupCard({
                   onClick={() => setSelectedItem(item)}
                   className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  <td className="py-3 px-4 text-gray-900 font-medium flex items-center gap-2">
-                    {item.name}
+                  <td className="w-4 py-3 px-3 sm:px-4"></td>
+                  <td className="py-3 px-3 sm:px-4 text-gray-900 font-medium flex items-center gap-2 text-sm sm:text-base">
+                    <span className="truncate flex-1 min-w-0">{item.name}</span>
                     {item.total === 0 && (
-                      <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded">
+                      <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded whitespace-nowrap flex-shrink-0">
                         Needs stock
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4 text-right text-gray-700 font-mono">
+                  <td className="py-3 px-3 sm:px-4 text-right text-gray-700 font-mono text-sm sm:text-base whitespace-nowrap">
                     {item.available} / {item.total}
                   </td>
                 </tr>

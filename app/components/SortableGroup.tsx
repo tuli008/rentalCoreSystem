@@ -66,12 +66,12 @@ export default function SortableGroup({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <div className="flex items-start gap-2 group">
+      <div className="block sm:flex sm:items-start sm:gap-2 group">
         {mounted && (
           <div
             {...attributes}
             {...listeners}
-            className="mt-6 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+            className="hidden sm:block mt-6 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <svg
               className="w-5 h-5 text-gray-400"
@@ -88,7 +88,7 @@ export default function SortableGroup({
             </svg>
           </div>
         )}
-        <div className="flex-1">
+        <div className="sm:flex-1">
           <InventoryGroupCard
             group={group}
             createItem={createItem}

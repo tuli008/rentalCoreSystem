@@ -119,10 +119,10 @@ export async function addQuoteItem(formData: FormData) {
     return { error: "Quote ID, item ID, and valid quantity are required" };
   }
 
-  // Fetch item to get current price
+  // Fetch item to get current price and check if serialized
   const { data: item, error: itemError } = await supabase
     .from("inventory_items")
-    .select("price")
+    .select("price, is_serialized")
     .eq("id", itemId)
     .eq("tenant_id", tenantId)
     .single();
@@ -134,6 +134,35 @@ export async function addQuoteItem(formData: FormData) {
       error: itemError?.message,
     });
     return { error: "Failed to fetch item" };
+  }
+
+  // Validate availability (read-only check)
+  let available = 0;
+  if (item.is_serialized) {
+    const { data: units } = await supabase
+      .from("inventory_units")
+      .select("status")
+      .eq("item_id", itemId);
+
+    if (units) {
+      available = units.filter((u) => u.status === "available").length;
+    }
+  } else {
+    const { data: stock } = await supabase
+      .from("inventory_stock")
+      .select("total_quantity, out_of_service_quantity")
+      .eq("item_id", itemId)
+      .single();
+
+    if (stock) {
+      available = stock.total_quantity - (stock.out_of_service_quantity || 0);
+    }
+  }
+
+  if (quantity > available) {
+    return {
+      error: `Insufficient availability. Only ${available} available.`,
+    };
   }
 
   // Insert quote item with price snapshot
@@ -155,6 +184,7 @@ export async function addQuoteItem(formData: FormData) {
   }
 
   revalidatePath("/quotes");
+  revalidatePath(`/quotes/${quoteId}`);
   return { success: true };
 }
 
@@ -164,6 +194,54 @@ export async function updateQuoteItem(formData: FormData) {
 
   if (!quoteItemId || !quantity || quantity <= 0) {
     return { error: "Quote item ID and valid quantity are required" };
+  }
+
+  // Get quote item to find item_id and quote_id
+  const { data: quoteItem, error: fetchError } = await supabase
+    .from("quote_items")
+    .select("item_id, quote_id")
+    .eq("id", quoteItemId)
+    .single();
+
+  if (fetchError || !quoteItem) {
+    return { error: "Quote item not found" };
+  }
+
+  // Validate availability
+  const { data: item } = await supabase
+    .from("inventory_items")
+    .select("is_serialized")
+    .eq("id", quoteItem.item_id)
+    .single();
+
+  if (item) {
+    let available = 0;
+    if (item.is_serialized) {
+      const { data: units } = await supabase
+        .from("inventory_units")
+        .select("status")
+        .eq("item_id", quoteItem.item_id);
+
+      if (units) {
+        available = units.filter((u) => u.status === "available").length;
+      }
+    } else {
+      const { data: stock } = await supabase
+        .from("inventory_stock")
+        .select("total_quantity, out_of_service_quantity")
+        .eq("item_id", quoteItem.item_id)
+        .single();
+
+      if (stock) {
+        available = stock.total_quantity - (stock.out_of_service_quantity || 0);
+      }
+    }
+
+    if (quantity > available) {
+      return {
+        error: `Insufficient availability. Only ${available} available.`,
+      };
+    }
   }
 
   const { error } = await supabase
@@ -181,6 +259,7 @@ export async function updateQuoteItem(formData: FormData) {
   }
 
   revalidatePath("/quotes");
+  revalidatePath(`/quotes/${quoteItem.quote_id}`);
   return { success: true };
 }
 
@@ -190,6 +269,13 @@ export async function deleteQuoteItem(formData: FormData) {
   if (!quoteItemId) {
     return { error: "Quote item ID is required" };
   }
+
+  // Get quote_id before deleting for revalidation
+  const { data: quoteItem } = await supabase
+    .from("quote_items")
+    .select("quote_id")
+    .eq("id", quoteItemId)
+    .single();
 
   const { error } = await supabase
     .from("quote_items")
@@ -206,15 +292,25 @@ export async function deleteQuoteItem(formData: FormData) {
   }
 
   revalidatePath("/quotes");
+  if (quoteItem) {
+    revalidatePath(`/quotes/${quoteItem.quote_id}`);
+  }
   return { success: true };
 }
 
-export async function searchInventoryItems(query: string) {
+export async function searchInventoryItems(
+  query: string,
+  quoteContext?: {
+    quoteId: string;
+    startDate: string;
+    endDate: string;
+  },
+) {
   const searchTerm = `%${query.toLowerCase()}%`;
 
   const { data: items, error } = await supabase
     .from("inventory_items")
-    .select("id, name, price")
+    .select("id, name, price, is_serialized")
     .eq("active", true)
     .eq("tenant_id", tenantId)
     .ilike("name", searchTerm)
@@ -229,5 +325,73 @@ export async function searchInventoryItems(query: string) {
     return [];
   }
 
-  return items || [];
+  if (!items || items.length === 0) {
+    return [];
+  }
+
+  // Fetch availability for each item (use getItemAvailabilityBreakdown for date-aware calculation if quoteContext provided)
+  const itemsWithAvailability = await Promise.all(
+    items.map(async (item) => {
+      if (quoteContext) {
+        // Use date-aware availability calculation
+        const { getItemAvailabilityBreakdown } = await import("@/lib/quotes");
+        const breakdown = await getItemAvailabilityBreakdown(
+          item.id,
+          quoteContext,
+        );
+        return {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          is_serialized: item.is_serialized,
+          available:
+            breakdown.effectiveAvailable !== undefined
+              ? breakdown.effectiveAvailable
+              : breakdown.available,
+          total: breakdown.total,
+          effectiveAvailable: breakdown.effectiveAvailable,
+          reservedInOverlappingEvents: breakdown.reservedInOverlappingEvents,
+        };
+      } else {
+        // Fallback to simple availability calculation
+        let available = 0;
+        let total = 0;
+
+        if (item.is_serialized) {
+          const { data: units } = await supabase
+            .from("inventory_units")
+            .select("status")
+            .eq("item_id", item.id);
+
+          if (units) {
+            total = units.length;
+            available = units.filter((u) => u.status === "available").length;
+          }
+        } else {
+          const { data: stock } = await supabase
+            .from("inventory_stock")
+            .select("total_quantity, out_of_service_quantity")
+            .eq("item_id", item.id)
+            .single();
+
+          if (stock) {
+            total = stock.total_quantity;
+            available =
+              stock.total_quantity - (stock.out_of_service_quantity || 0);
+          }
+        }
+
+        return {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          is_serialized: item.is_serialized,
+          available,
+          total,
+        };
+      }
+    }),
+  );
+
+  return itemsWithAvailability;
 }
