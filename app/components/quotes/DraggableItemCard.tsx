@@ -21,12 +21,14 @@ interface DraggableItemCardProps {
   item: InventoryItem;
   effectiveAvailable: number;
   onAddClick: (item: InventoryItem) => void;
+  isReadOnly?: boolean;
 }
 
 export default function DraggableItemCard({
   item,
   effectiveAvailable,
   onAddClick,
+  isReadOnly = false,
 }: DraggableItemCardProps) {
   const {
     attributes,
@@ -40,6 +42,7 @@ export default function DraggableItemCard({
       type: "inventory-item",
       item: item,
     },
+    disabled: isReadOnly,
   });
 
   const style = {
@@ -54,9 +57,10 @@ export default function DraggableItemCard({
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className="p-4 hover:bg-gray-50 transition-colors border-b border-gray-200 last:border-b-0 cursor-grab active:cursor-grabbing"
+      {...(isReadOnly ? {} : { ...attributes, ...listeners })}
+      className={`p-4 hover:bg-gray-50 transition-colors border-b border-gray-200 last:border-b-0 ${
+        isReadOnly ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+      }`}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -112,9 +116,12 @@ export default function DraggableItemCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onAddClick(item);
+            if (!isReadOnly) {
+              onAddClick(item);
+            }
           }}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+          disabled={isReadOnly}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add
         </button>

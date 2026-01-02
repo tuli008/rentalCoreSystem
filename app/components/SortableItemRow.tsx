@@ -9,11 +9,13 @@ import type { InventoryItem } from "@/lib/inventory";
 interface SortableItemRowProps {
   item: InventoryItem;
   onItemClick: (item: InventoryItem) => void;
+  onArchive?: (item: InventoryItem) => void;
 }
 
 export default function SortableItemRow({
   item,
   onItemClick,
+  onArchive,
 }: SortableItemRowProps) {
   const [mounted, setMounted] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -44,6 +46,27 @@ export default function SortableItemRow({
     router.push("/quotes");
   };
 
+  const handleEdit = () => {
+    setShowMenu(false);
+    onItemClick(item);
+  };
+
+  const handleViewUsage = () => {
+    setShowMenu(false);
+    // TODO: Navigate to usage/rentals page or show modal
+    // For now, we'll show an alert as placeholder
+    alert(`View usage/rentals for ${item.name} - Feature coming soon`);
+  };
+
+  const handleArchive = () => {
+    setShowMenu(false);
+    if (onArchive) {
+      if (confirm(`Are you sure you want to archive "${item.name}"?`)) {
+        onArchive(item);
+      }
+    }
+  };
+
   const {
     attributes,
     listeners,
@@ -64,9 +87,9 @@ export default function SortableItemRow({
       ref={setNodeRef}
       style={style}
       onClick={() => onItemClick(item)}
-      className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer group"
+      className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer group text-sm"
     >
-      <td className="py-3 px-3 sm:px-4 text-gray-900 font-medium flex items-center gap-2 text-sm sm:text-base">
+      <td className="w-4 py-2 px-3 sm:px-4">
         <div
           {...attributes}
           {...listeners}
@@ -87,17 +110,44 @@ export default function SortableItemRow({
             />
           </svg>
         </div>
-        <span className="truncate flex-1 min-w-0">{item.name}</span>
-        {item.total === 0 && (
-          <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded whitespace-nowrap flex-shrink-0">
-            Needs stock
+      </td>
+      <td className="py-2 px-3 sm:px-4">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-900 font-medium text-sm sm:text-base truncate">
+            {item.name}
           </span>
+          {item.total === 0 && (
+            <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded whitespace-nowrap flex-shrink-0">
+              Needs stock
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="py-2 px-3 sm:px-4">
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${
+            item.is_serialized
+              ? "bg-blue-100 text-blue-700"
+              : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {item.is_serialized ? "Serialized" : "Bulk"}
+        </span>
+      </td>
+      <td className="py-2 px-3 sm:px-4">
+        {item.sku ? (
+          <span className="text-xs text-gray-600 font-mono">{item.sku}</span>
+        ) : (
+          <span className="text-xs text-gray-400">—</span>
         )}
+      </td>
+      <td className="py-3 px-3 sm:px-4 text-right text-gray-700 text-sm sm:text-base whitespace-nowrap">
+        ${item.price.toFixed(2)}
       </td>
       <td className="py-3 px-3 sm:px-4 text-right text-gray-700 font-mono text-sm sm:text-base whitespace-nowrap">
         {item.available} / {item.total}
       </td>
-      <td className="py-3 px-3 sm:px-4 w-10 relative">
+      <td className="py-2 px-3 sm:px-4 w-10 relative">
         <div ref={menuRef} className="relative">
           <button
             onClick={(e) => {
@@ -126,11 +176,39 @@ export default function SortableItemRow({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  handleEdit();
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Edit Item
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewUsage();
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                View Usage / Rentals
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
                   handleAddToQuote();
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                Add to quote...
+                Add to Quote
+              </button>
+              <div className="border-t border-gray-200"></div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleArchive();
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                Archive
               </button>
             </div>
           )}

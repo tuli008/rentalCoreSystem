@@ -5,6 +5,8 @@ import type { InventoryGroup } from "@/lib/inventory";
 import SortableGroupsList from "./SortableGroupsList";
 import InventorySidebar from "./InventorySidebar";
 
+export type SortOrder = "a-z" | "availability";
+
 interface InventoryPageContentProps {
   groups: InventoryGroup[];
   createGroup: (formData: FormData) => Promise<void>;
@@ -47,6 +49,12 @@ export default function InventoryPageContent({
   updateGroup,
 }: InventoryPageContentProps) {
   const [itemIdToOpen, setItemIdToOpen] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("a-z");
+  const [allCollapsed, setAllCollapsed] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(2);
+
+  // Calculate total items across all groups
+  const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
 
   const handleItemSelect = (itemId: string, groupId: string) => {
     setItemIdToOpen(itemId);
@@ -76,7 +84,8 @@ export default function InventoryPageContent({
             </div>
             
             {/* Toolbar */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
+              {/* Add Group Form */}
               <form action={createGroup}>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
                   <input
@@ -90,6 +99,84 @@ export default function InventoryPageContent({
                   </button>
                 </div>
               </form>
+
+              {/* Summary - Will be updated per group, showing total for now */}
+              <div className="pt-3 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  Total: <span className="font-medium text-gray-900">{totalItems}</span> items
+                </p>
+              </div>
+
+              {/* Controls: Sort, Page Size & Collapse/Expand */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-gray-200">
+                {/* Left side: Sort & Collapse/Expand */}
+                <div className="flex items-center gap-3">
+                  {/* Sort Toggle */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                      Sort:
+                    </label>
+                    <div className="flex rounded-md border border-gray-300 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setSortOrder("a-z")}
+                        className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                          sortOrder === "a-z"
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        A–Z
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSortOrder("availability")}
+                        className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-300 ${
+                          sortOrder === "availability"
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        Availability
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Collapse/Expand All */}
+                  <button
+                    type="button"
+                    onClick={() => setAllCollapsed(!allCollapsed)}
+                    className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap"
+                  >
+                    {allCollapsed ? "Expand All" : "Collapse All"}
+                  </button>
+                </div>
+
+                {/* Right side: Page Size */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    Page size:
+                  </label>
+                  <div className="flex rounded-md border border-gray-300 overflow-hidden">
+                    {[20, 50, 100].map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setPageSize(size)}
+                        className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                          size === 20 ? "" : "border-l border-gray-300"
+                        } ${
+                          pageSize === size
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -108,6 +195,9 @@ export default function InventoryPageContent({
             updateGroup={updateGroup}
             itemIdToOpen={itemIdToOpen}
             onItemOpened={handleItemOpened}
+            sortOrder={sortOrder}
+            allCollapsed={allCollapsed}
+            pageSize={pageSize}
           />
         </div>
       </div>

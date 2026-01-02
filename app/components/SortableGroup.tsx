@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { InventoryGroup } from "@/lib/inventory";
+import type { SortOrder } from "./InventoryPageContent";
 import InventoryGroupCard from "./InventoryGroupCard";
 
 interface SortableGroupProps {
@@ -31,6 +32,9 @@ interface SortableGroupProps {
   ) => Promise<{ error?: string; success?: boolean }>;
   itemIdToOpen: string | null;
   onItemOpened: () => void;
+  sortOrder: SortOrder;
+  isCollapsed: boolean;
+  pageSize: number;
 }
 
 export default function SortableGroup({
@@ -46,6 +50,9 @@ export default function SortableGroup({
   updateGroup,
   itemIdToOpen,
   onItemOpened,
+  sortOrder,
+  isCollapsed,
+  pageSize,
 }: SortableGroupProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -107,6 +114,9 @@ export default function SortableGroup({
             updateGroup={updateGroup}
             itemIdToOpen={itemIdToOpen}
             onItemOpened={onItemOpened}
+            sortOrder={sortOrder}
+            initialCollapsed={isCollapsed}
+            pageSize={pageSize}
           />
         </div>
       </div>

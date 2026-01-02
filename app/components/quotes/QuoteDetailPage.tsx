@@ -358,6 +358,8 @@ export default function QuoteDetailPage({
     return `${year}-${month}-${day}`; // Consistent format
   };
 
+  const isReadOnly = quote.status === "accepted";
+
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="min-h-screen bg-gray-50 flex flex-row flex-nowrap w-full">
@@ -452,10 +454,56 @@ export default function QuoteDetailPage({
           </div>
 
           {quote.items.length === 0 ? (
-            <QuoteDropZone isEmpty={true} />
+            <QuoteDropZone isEmpty={true} isReadOnly={isReadOnly} />
+          ) : isReadOnly ? (
+            // Table format for accepted quotes
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-300">
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700 text-sm">
+                      Item Name
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700 text-sm">
+                      Quantity
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700 text-sm">
+                      Price
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quote.items.map((item) => {
+                    const localQuantityStr = localQuantities.get(item.id);
+                    const displayQuantity = localQuantityStr
+                      ? parseInt(localQuantityStr, 10) || 0
+                      : item.quantity;
+                    const lineTotal =
+                      displayQuantity * item.unit_price_snapshot * numberOfDays;
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className="border-b border-gray-200 hover:bg-gray-50"
+                      >
+                        <td className="py-2 px-3 text-gray-900 font-medium">
+                          {item.item_name || "Unknown Item"}
+                        </td>
+                        <td className="py-2 px-3 text-right text-gray-700">
+                          {displayQuantity}
+                        </td>
+                        <td className="py-2 px-3 text-right text-gray-900 font-semibold">
+                          ${lineTotal.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div>
-              <QuoteDropZone isEmpty={false} />
+              <QuoteDropZone isEmpty={false} isReadOnly={isReadOnly} />
               <div className="mt-4 space-y-3">
               {quote.items.map((item) => {
                 const breakdown = itemAvailabilities.get(item.item_id) || {
@@ -481,6 +529,7 @@ export default function QuoteDetailPage({
                     : breakdown.available;
                 const isOverAvailable = displayQuantity > effectiveAvailable;
 
+                // Full view for draft quotes
                 return (
                   <div
                     key={item.id}
@@ -805,6 +854,7 @@ export default function QuoteDetailPage({
             subtotal,
             numberOfDays,
           }}
+          isReadOnly={quote.status === "accepted"}
         />
       </div>
 

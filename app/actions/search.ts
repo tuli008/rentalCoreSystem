@@ -1,6 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase";
+import { getItemAvailabilityBreakdown } from "@/lib/quotes";
 
 export interface SearchResult {
   id: string;
@@ -154,4 +155,39 @@ export async function searchInventory(query: string): Promise<SearchResult[]> {
   });
 
   return results;
+}
+
+/**
+ * Get date-range based availability for an item
+ * Server action wrapper for getItemAvailabilityBreakdown
+ */
+export async function getItemDateRangeAvailability(
+  itemId: string,
+  startDate: string,
+  endDate: string,
+): Promise<{ effectiveAvailable?: number; total: number }> {
+  // Use a dummy quoteId for inventory page (not tied to a specific quote)
+  const dummyQuoteId = "00000000-0000-0000-0000-000000000000";
+
+  try {
+    const breakdown = await getItemAvailabilityBreakdown(itemId, {
+      quoteId: dummyQuoteId,
+      startDate,
+      endDate,
+    });
+
+    return {
+      effectiveAvailable: breakdown.effectiveAvailable,
+      total: breakdown.total,
+    };
+  } catch (error) {
+    console.error(
+      `[getItemDateRangeAvailability] Error calculating availability for ${itemId}:`,
+      error,
+    );
+    // Return default values on error
+    return {
+      total: 0,
+    };
+  }
 }

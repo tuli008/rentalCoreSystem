@@ -4,11 +4,13 @@ import { useDroppable } from "@dnd-kit/core";
 
 interface QuoteDropZoneProps {
   isEmpty: boolean;
+  isReadOnly?: boolean;
 }
 
-export default function QuoteDropZone({ isEmpty }: QuoteDropZoneProps) {
+export default function QuoteDropZone({ isEmpty, isReadOnly = false }: QuoteDropZoneProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: "quote-drop-zone",
+    disabled: isReadOnly,
   });
 
   return (
@@ -44,9 +46,11 @@ export default function QuoteDropZone({ isEmpty }: QuoteDropZoneProps) {
               isOver ? "text-blue-700 font-medium" : "text-gray-600"
             }`}
           >
-            {isOver
-              ? "Drop item here to add to quote"
-              : "Drag items here or click '+ Add Item' to get started"}
+            {isReadOnly
+              ? "This quote is accepted and cannot be modified"
+              : isOver
+                ? "Drop item here to add to quote"
+                : "Drag items here or click '+ Add Item' to get started"}
           </p>
         </div>
       )}

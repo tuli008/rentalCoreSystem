@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { searchInventory, type SearchResult } from "@/app/actions/search";
+import {
+  searchInventory,
+  type SearchResult,
+  getItemDateRangeAvailability,
+} from "@/app/actions/search";
 
 interface InventorySidebarProps {
   onItemSelect: (itemId: string, groupId: string) => void;
@@ -18,6 +22,11 @@ export default function InventorySidebar({
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [showAvailability, setShowAvailability] = useState(false);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [itemAvailabilities, setItemAvailabilities] = useState<
+    Map<string, { effectiveAvailable?: number; total: number }>
+  >(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -65,6 +74,46 @@ export default function InventorySidebar({
     setQuery("");
     setResults([]);
   };
+
+  // Calculate date-range based availability when dates are provided
+  useEffect(() => {
+    if (!showAvailability || !startDate || !endDate || results.length === 0) {
+      setItemAvailabilities(new Map());
+      return;
+    }
+
+    const calculateAvailabilities = async () => {
+      const availabilities = new Map<
+        string,
+        { effectiveAvailable?: number; total: number }
+      >();
+
+      await Promise.all(
+        results.map(async (result) => {
+          try {
+            const availability = await getItemDateRangeAvailability(
+              result.id,
+              startDate,
+              endDate,
+            );
+            availabilities.set(result.id, availability);
+          } catch (error) {
+            console.error(
+              `Error calculating availability for ${result.id}:`,
+              error,
+            );
+            availabilities.set(result.id, {
+              total: result.total,
+            });
+          }
+        }),
+      );
+
+      setItemAvailabilities(availabilities);
+    };
+
+    calculateAvailabilities();
+  }, [showAvailability, startDate, endDate, results]);
 
 
   return (
@@ -148,7 +197,7 @@ export default function InventorySidebar({
           </div>
 
           {/* Show Date-Based Availability */}
-          <div className="pt-1">
+          <div className="pt-1 space-y-2">
             <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
               <input
                 type="checkbox"
@@ -163,6 +212,33 @@ export default function InventorySidebar({
                 </span>
               </div>
             </label>
+            {showAvailability && (
+              <div className="ml-6 space-y-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate || undefined}
+                    className="w-full px-2 py-1.5 text-sm bg-white text-gray-900 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -187,7 +263,22 @@ export default function InventorySidebar({
                   </div>
                   {showAvailability && (
                     <div className="text-xs text-gray-500 mt-1 font-mono">
-                      {result.available} / {result.total}
+                      {(() => {
+                        const availability = itemAvailabilities.get(result.id);
+                        if (availability?.effectiveAvailable !== undefined) {
+                          return (
+                            <span>
+                              {availability.effectiveAvailable} / {availability.total}
+                              <span className="text-blue-600 ml-1">(date-aware)</span>
+                            </span>
+                          );
+                        }
+                        return (
+                          <span>
+                            {result.available} / {result.total}
+                          </span>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

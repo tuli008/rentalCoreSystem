@@ -17,6 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { InventoryGroup } from "@/lib/inventory";
+import type { SortOrder } from "./InventoryPageContent";
 import SortableGroup from "./SortableGroup";
 
 interface SortableGroupsListProps {
@@ -45,6 +46,9 @@ interface SortableGroupsListProps {
   ) => Promise<{ error?: string; success?: boolean }>;
   itemIdToOpen: string | null;
   onItemOpened: () => void;
+  sortOrder: SortOrder;
+  allCollapsed: boolean;
+  pageSize: number;
 }
 
 export default function SortableGroupsList({
@@ -61,6 +65,9 @@ export default function SortableGroupsList({
   updateGroup,
   itemIdToOpen,
   onItemOpened,
+  sortOrder,
+  allCollapsed,
+  pageSize,
 }: SortableGroupsListProps) {
   // Use initialGroups as source of truth, only override during drag
   const [draggingGroups, setDraggingGroups] = useState<InventoryGroup[] | null>(
@@ -144,6 +151,9 @@ export default function SortableGroupsList({
             updateGroup={updateGroup}
             itemIdToOpen={itemIdToOpen}
             onItemOpened={onItemOpened}
+            sortOrder={sortOrder}
+            isCollapsed={allCollapsed}
+            pageSize={pageSize}
           />
         ))}
       </>
@@ -175,6 +185,9 @@ export default function SortableGroupsList({
             updateGroup={updateGroup}
             itemIdToOpen={itemIdToOpen}
             onItemOpened={onItemOpened}
+            sortOrder={sortOrder}
+            isCollapsed={allCollapsed}
+            pageSize={pageSize}
           />
         ))}
       </SortableContext>

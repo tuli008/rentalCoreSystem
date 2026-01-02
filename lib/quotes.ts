@@ -379,16 +379,36 @@ export async function getItemAvailabilityBreakdown(
       };
     }
 
-    const total = stock.total_quantity;
+    const currentTotal = stock.total_quantity;
     const outOfService = stock.out_of_service_quantity || 0;
-    const available = total - outOfService;
+    
+    // For non-serialized items, total_quantity is reduced when quotes are confirmed
+    // Calculate original total by adding back quantities from accepted quotes
+    const { data: acceptedQuoteItems, error: acceptedError } = await supabase
+      .from("quote_items")
+      .select("quantity, quotes:quote_id!inner(status)")
+      .eq("item_id", itemId)
+      .eq("quotes.status", "accepted");
+
+    let originalTotal = currentTotal;
+    if (!acceptedError && acceptedQuoteItems) {
+      // Sum up quantities from all accepted quotes to get original total
+      const reservedInAcceptedQuotes = acceptedQuoteItems.reduce(
+        (sum, qi) => sum + qi.quantity,
+        0,
+      );
+      originalTotal = currentTotal + reservedInAcceptedQuotes;
+    }
+
+    const available = currentTotal - outOfService;
     // For non-serialized items, In-Transit does not apply (always 0)
     const inTransit = 0;
 
-    // Calculate effective available: total - out_of_service - reserved_in_overlapping_events
+    // Calculate effective available: original_total - out_of_service - reserved_in_overlapping_events
+    // Use originalTotal to show availability from the original inventory, not the reduced inventory
     const effectiveAvailable = Math.max(
       0,
-      total - outOfService - reservedInOverlappingEvents,
+      originalTotal - outOfService - reservedInOverlappingEvents,
     );
 
     return {
@@ -396,7 +416,7 @@ export async function getItemAvailabilityBreakdown(
       reserved,
       inTransit,
       outOfService,
-      total,
+      total: originalTotal, // Return original total for display
       effectiveAvailable: quoteContext ? effectiveAvailable : undefined,
       reservedInOverlappingEvents: quoteContext
         ? reservedInOverlappingEvents

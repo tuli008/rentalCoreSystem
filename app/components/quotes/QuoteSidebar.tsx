@@ -40,6 +40,7 @@ interface QuoteSidebarProps {
     subtotal: number;
     numberOfDays: number;
   };
+  isReadOnly?: boolean;
 }
 
 export default function QuoteSidebar({
@@ -47,6 +48,7 @@ export default function QuoteSidebar({
   existingQuoteItems,
   quoteContext,
   quoteSummary,
+  isReadOnly = false,
 }: QuoteSidebarProps) {
   const [activeTab, setActiveTab] = useState<"summary" | "search" | "quick">(
     "search",
@@ -197,11 +199,14 @@ export default function QuoteSidebar({
       const quantityInQuote = itemsInQuote.get(item.id) || 0;
       if (quantityInQuote > 0) {
         // Adjust effective available by subtracting what's already in quote
+        // Note: effectiveAvailable from server already excludes overlapping events,
+        // so we only need to subtract what's in THIS quote
         const currentAvailable = item.effectiveAvailable !== undefined
           ? item.effectiveAvailable
           : item.available || 0;
         return {
           ...item,
+          // Don't modify total - it represents the actual inventory total
           effectiveAvailable: Math.max(0, currentAvailable - quantityInQuote),
           quantityInQuote, // Add this for display
         };
@@ -434,6 +439,7 @@ export default function QuoteSidebar({
                           item={item}
                           effectiveAvailable={avail}
                           onAddClick={handleAddClick}
+                          isReadOnly={isReadOnly}
                         />
                       );
                     })}
@@ -507,6 +513,7 @@ export default function QuoteSidebar({
             <button
               onClick={handleQuickAdd}
               disabled={
+                isReadOnly ||
                 !quickAddProduct.trim() ||
                 quickAddResults.length === 0 ||
                 !quickAddQty ||

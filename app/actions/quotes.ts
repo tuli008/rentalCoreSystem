@@ -322,7 +322,9 @@ export async function updateQuoteItem(formData: FormData) {
       quantity,
       quotes:quote_id (
         id,
-        status
+        status,
+        start_date,
+        end_date
       )
     `,
     )
@@ -433,32 +435,114 @@ export async function updateQuoteItem(formData: FormData) {
       }
     } else if (quantityDifference > 0) {
       // Quantity increased - need to reduce inventory further
-      // Check availability (should include items already reserved in this quote)
-      let available = 0;
-      if (item.is_serialized) {
-        const { data: units } = await supabase
-          .from("inventory_units")
-          .select("status")
+      // Validate date-aware availability first
+      const quoteStartDate = quote?.start_date;
+      const quoteEndDate = quote?.end_date;
+
+      let availableForIncrease = 0;
+
+      if (quoteStartDate && quoteEndDate) {
+        // Use date-aware availability calculation
+        const { getItemAvailabilityBreakdown } = await import("@/lib/quotes");
+        const breakdown = await getItemAvailabilityBreakdown(itemId, {
+          quoteId: quoteItem.quote_id,
+          startDate: quoteStartDate,
+          endDate: quoteEndDate,
+        });
+
+        // Get all quantities of this item already in this quote (including current item)
+        const { data: allQuoteItems, error: quoteItemsError } = await supabase
+          .from("quote_items")
+          .select("quantity")
+          .eq("quote_id", quoteItem.quote_id)
           .eq("item_id", itemId);
 
-        if (units) {
-          available = units.filter((u) => u.status === "available").length;
+        if (quoteItemsError) {
+          console.error(
+            `[updateQuoteItem] Error fetching quote items for validation:`,
+            quoteItemsError,
+          );
+          // Fallback to basic availability
+          if (item.is_serialized) {
+            const { data: units } = await supabase
+              .from("inventory_units")
+              .select("status")
+              .eq("item_id", itemId);
+            if (units) {
+              availableForIncrease = units.filter(
+                (u) => u.status === "available",
+              ).length;
+            }
+          } else {
+            const { data: stock } = await supabase
+              .from("inventory_stock")
+              .select("total_quantity, out_of_service_quantity")
+              .eq("item_id", itemId)
+              .single();
+            if (stock) {
+              availableForIncrease =
+                stock.total_quantity - (stock.out_of_service_quantity || 0);
+            }
+          }
+        } else {
+          // Calculate total quantity already in this quote
+          const totalInThisQuote =
+            allQuoteItems?.reduce((sum, qi) => sum + qi.quantity, 0) || 0;
+          // Subtract the old quantity (since we're updating it)
+          const otherItemsInQuote = totalInThisQuote - oldQuantity;
+
+          // Effective available = date-aware available - other items in this quote
+          const effectiveAvailable =
+            breakdown.effectiveAvailable !== undefined
+              ? breakdown.effectiveAvailable
+              : breakdown.available;
+          availableForIncrease = Math.max(
+            0,
+            effectiveAvailable - otherItemsInQuote,
+          );
         }
       } else {
-        const { data: stock } = await supabase
-          .from("inventory_stock")
-          .select("total_quantity, out_of_service_quantity")
-          .eq("item_id", itemId)
-          .single();
+        // Fallback to basic availability if quote dates are missing
+        if (item.is_serialized) {
+          const { data: units } = await supabase
+            .from("inventory_units")
+            .select("status")
+            .eq("item_id", itemId);
 
-        if (stock) {
-          available = stock.total_quantity - (stock.out_of_service_quantity || 0);
+          if (units) {
+            availableForIncrease = units.filter(
+              (u) => u.status === "available",
+            ).length;
+          }
+        } else {
+          const { data: stock } = await supabase
+            .from("inventory_stock")
+            .select("total_quantity, out_of_service_quantity")
+            .eq("item_id", itemId)
+            .single();
+
+          if (stock) {
+            availableForIncrease =
+              stock.total_quantity - (stock.out_of_service_quantity || 0);
+          }
         }
+
+        // Get all quantities of this item already in this quote
+        const { data: allQuoteItems } = await supabase
+          .from("quote_items")
+          .select("quantity")
+          .eq("quote_id", quoteItem.quote_id)
+          .eq("item_id", itemId);
+
+        const totalInThisQuote =
+          allQuoteItems?.reduce((sum, qi) => sum + qi.quantity, 0) || 0;
+        const otherItemsInQuote = totalInThisQuote - oldQuantity;
+        availableForIncrease = Math.max(0, availableForIncrease - otherItemsInQuote);
       }
 
-      if (quantityDifference > available) {
+      if (quantityDifference > availableForIncrease) {
         return {
-          error: `Insufficient availability. Only ${available} available to add.`,
+          error: `Insufficient availability. Only ${availableForIncrease} available to add for this date range (accounting for overlapping events and items already in this quote).`,
         };
       }
 
@@ -524,33 +608,96 @@ export async function updateQuoteItem(formData: FormData) {
       }
     }
   } else {
-    // Quote is draft - just validate availability (existing logic)
-    let available = 0;
-    if (item.is_serialized) {
-      const { data: units } = await supabase
-        .from("inventory_units")
-        .select("status")
+    // Quote is draft - validate date-aware availability
+    // Get quote dates for date-aware calculation
+    const quoteStartDate = quote?.start_date;
+    const quoteEndDate = quote?.end_date;
+
+    if (quoteStartDate && quoteEndDate) {
+      // Use date-aware availability calculation
+      const { getItemAvailabilityBreakdown } = await import("@/lib/quotes");
+      const breakdown = await getItemAvailabilityBreakdown(itemId, {
+        quoteId: quoteItem.quote_id,
+        startDate: quoteStartDate,
+        endDate: quoteEndDate,
+      });
+
+      // Get all quantities of this item already in this quote (including current item)
+      const { data: allQuoteItems, error: quoteItemsError } = await supabase
+        .from("quote_items")
+        .select("quantity")
+        .eq("quote_id", quoteItem.quote_id)
         .eq("item_id", itemId);
 
-      if (units) {
-        available = units.filter((u) => u.status === "available").length;
+      if (quoteItemsError) {
+        console.error(
+          `[updateQuoteItem] Error fetching quote items for validation:`,
+          quoteItemsError,
+        );
+      } else {
+        // Calculate total quantity already in this quote
+        const totalInThisQuote =
+          allQuoteItems?.reduce((sum, qi) => sum + qi.quantity, 0) || 0;
+        // Subtract the old quantity (since we're updating it)
+        const otherItemsInQuote = totalInThisQuote - oldQuantity;
+
+        // Effective available = date-aware available - other items in this quote
+        const effectiveAvailable =
+          breakdown.effectiveAvailable !== undefined
+            ? breakdown.effectiveAvailable
+            : breakdown.available;
+        const availableForThisQuote = Math.max(
+          0,
+          effectiveAvailable - otherItemsInQuote,
+        );
+
+        if (newQuantity > availableForThisQuote) {
+          return {
+            error: `Insufficient availability. Only ${availableForThisQuote} available for this date range (accounting for overlapping events and items already in this quote).`,
+          };
+        }
       }
     } else {
-      const { data: stock } = await supabase
-        .from("inventory_stock")
-        .select("total_quantity, out_of_service_quantity")
-        .eq("item_id", itemId)
-        .single();
+      // Fallback to basic availability if quote dates are missing
+      let available = 0;
+      if (item.is_serialized) {
+        const { data: units } = await supabase
+          .from("inventory_units")
+          .select("status")
+          .eq("item_id", itemId);
 
-      if (stock) {
-        available = stock.total_quantity - (stock.out_of_service_quantity || 0);
+        if (units) {
+          available = units.filter((u) => u.status === "available").length;
+        }
+      } else {
+        const { data: stock } = await supabase
+          .from("inventory_stock")
+          .select("total_quantity, out_of_service_quantity")
+          .eq("item_id", itemId)
+          .single();
+
+        if (stock) {
+          available = stock.total_quantity - (stock.out_of_service_quantity || 0);
+        }
       }
-    }
 
-    if (newQuantity > available) {
-      return {
-        error: `Insufficient availability. Only ${available} available.`,
-      };
+      // Get all quantities of this item already in this quote
+      const { data: allQuoteItems } = await supabase
+        .from("quote_items")
+        .select("quantity")
+        .eq("quote_id", quoteItem.quote_id)
+        .eq("item_id", itemId);
+
+      const totalInThisQuote =
+        allQuoteItems?.reduce((sum, qi) => sum + qi.quantity, 0) || 0;
+      const otherItemsInQuote = totalInThisQuote - oldQuantity;
+      const availableForThisQuote = Math.max(0, available - otherItemsInQuote);
+
+      if (newQuantity > availableForThisQuote) {
+        return {
+          error: `Insufficient availability. Only ${availableForThisQuote} available (accounting for items already in this quote).`,
+        };
+      }
     }
   }
 
