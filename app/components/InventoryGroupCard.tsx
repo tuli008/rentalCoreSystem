@@ -873,6 +873,7 @@ export default function InventoryGroupCard({
                   <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-700 text-sm sm:text-base">
                     Available / Total
                   </th>
+                  <th className="w-10 py-3 px-3 sm:px-4"></th>
                 </tr>
               </thead>
               <SortableContext
@@ -904,6 +905,7 @@ export default function InventoryGroupCard({
                 <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-700 text-sm sm:text-base">
                   Available / Total
                 </th>
+                <th className="w-10 py-3 px-3 sm:px-4"></th>
               </tr>
             </thead>
             <tbody>
@@ -925,6 +927,7 @@ export default function InventoryGroupCard({
                   <td className="py-3 px-3 sm:px-4 text-right text-gray-700 font-mono text-sm sm:text-base whitespace-nowrap">
                     {item.available} / {item.total}
                   </td>
+                  <td className="py-3 px-3 sm:px-4 w-10"></td>
                 </tr>
               ))}
             </tbody>

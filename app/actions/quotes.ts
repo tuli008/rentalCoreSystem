@@ -743,7 +743,7 @@ export async function searchInventoryItems(
 
   const { data: items, error } = await supabase
     .from("inventory_items")
-    .select("id, name, price, is_serialized")
+    .select("id, name, price, is_serialized, group_id")
     .eq("active", true)
     .eq("tenant_id", tenantId)
     .ilike("name", searchTerm)
@@ -762,6 +762,17 @@ export async function searchInventoryItems(
     return [];
   }
 
+  // Fetch group names for the items
+  const groupIds = [...new Set(items.map((item) => item.group_id))];
+  const { data: groups, error: groupsError } = await supabase
+    .from("inventory_groups")
+    .select("id, name")
+    .in("id", groupIds);
+
+  const groupMap = new Map(
+    (groups || []).map((group) => [group.id, group.name]),
+  );
+
   // Fetch availability for each item (use getItemAvailabilityBreakdown for date-aware calculation if quoteContext provided)
   const itemsWithAvailability = await Promise.all(
     items.map(async (item) => {
@@ -777,6 +788,8 @@ export async function searchInventoryItems(
           name: item.name,
           price: item.price,
           is_serialized: item.is_serialized,
+          group_id: item.group_id,
+          group_name: groupMap.get(item.group_id) || "Unknown",
           available:
             breakdown.effectiveAvailable !== undefined
               ? breakdown.effectiveAvailable
@@ -819,6 +832,115 @@ export async function searchInventoryItems(
           name: item.name,
           price: item.price,
           is_serialized: item.is_serialized,
+          group_id: item.group_id,
+          group_name: groupMap.get(item.group_id) || "Unknown",
+          available,
+          total,
+        };
+      }
+    }),
+  );
+
+  return itemsWithAvailability;
+}
+
+export async function getAllInventoryItemsForQuote(
+  quoteContext?: {
+    quoteId: string;
+    startDate: string;
+    endDate: string;
+  },
+) {
+  const { data: items, error } = await supabase
+    .from("inventory_items")
+    .select("id, name, price, is_serialized, group_id")
+    .eq("active", true)
+    .eq("tenant_id", tenantId)
+    .order("name");
+
+  if (error) {
+    console.error("[getAllInventoryItemsForQuote] Error fetching items:", {
+      action: "getAllInventoryItemsForQuote",
+      error: error.message,
+    });
+    return [];
+  }
+
+  if (!items || items.length === 0) {
+    return [];
+  }
+
+  // Fetch all groups
+  const { data: groups, error: groupsError } = await supabase
+    .from("inventory_groups")
+    .select("id, name")
+    .order("name");
+
+  const groupMap = new Map(
+    (groups || []).map((group) => [group.id, group.name]),
+  );
+
+  // Fetch availability for each item
+  const itemsWithAvailability = await Promise.all(
+    items.map(async (item) => {
+      if (quoteContext) {
+        // Use date-aware availability calculation
+        const { getItemAvailabilityBreakdown } = await import("@/lib/quotes");
+        const breakdown = await getItemAvailabilityBreakdown(
+          item.id,
+          quoteContext,
+        );
+        return {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          is_serialized: item.is_serialized,
+          group_id: item.group_id,
+          group_name: groupMap.get(item.group_id) || "Unknown",
+          available:
+            breakdown.effectiveAvailable !== undefined
+              ? breakdown.effectiveAvailable
+              : breakdown.available,
+          total: breakdown.total,
+          effectiveAvailable: breakdown.effectiveAvailable,
+          reservedInOverlappingEvents: breakdown.reservedInOverlappingEvents,
+        };
+      } else {
+        // Fallback to simple availability calculation
+        let available = 0;
+        let total = 0;
+
+        if (item.is_serialized) {
+          const { data: units } = await supabase
+            .from("inventory_units")
+            .select("status")
+            .eq("item_id", item.id);
+
+          if (units) {
+            total = units.length;
+            available = units.filter((u) => u.status === "available").length;
+          }
+        } else {
+          const { data: stock } = await supabase
+            .from("inventory_stock")
+            .select("total_quantity, out_of_service_quantity")
+            .eq("item_id", item.id)
+            .single();
+
+          if (stock) {
+            total = stock.total_quantity;
+            available =
+              stock.total_quantity - (stock.out_of_service_quantity || 0);
+          }
+        }
+
+        return {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          is_serialized: item.is_serialized,
+          group_id: item.group_id,
+          group_name: groupMap.get(item.group_id) || "Unknown",
           available,
           total,
         };

@@ -272,9 +272,17 @@ export default function QuoteDetailPage({
       (1000 * 60 * 60 * 24),
   );
 
-  const subtotal = quote.items.reduce((sum, item) => {
-    return sum + item.quantity * item.unit_price_snapshot * numberOfDays;
-  }, 0);
+  // Calculate subtotal using local quantities for real-time updates
+  const subtotal = useMemo(() => {
+    return quote.items.reduce((sum, item) => {
+      // Use local quantity if available, otherwise use server quantity
+      const localQuantityStr = localQuantities.get(item.id);
+      const quantity = localQuantityStr
+        ? parseInt(localQuantityStr, 10) || 0
+        : item.quantity;
+      return sum + quantity * item.unit_price_snapshot * numberOfDays;
+    }, 0);
+  }, [quote.items, localQuantities, numberOfDays]);
 
   // Consistent date formatting to avoid hydration errors
   const formatDate = (date: Date) => {
