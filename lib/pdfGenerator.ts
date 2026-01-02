@@ -130,7 +130,10 @@ export function generateQuotePDF(quote: QuoteWithItems): void {
   });
 
   // Footer
-  const totalPages = doc.getNumberOfPages();
+  // Get number of pages - getNumberOfPages() exists in jsPDF v3 but @types/jspdf doesn't include it
+  // Access via type assertion since the method exists at runtime
+  const totalPages: number = (doc as any).getNumberOfPages?.() ?? 1;
+  
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
