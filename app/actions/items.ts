@@ -106,6 +106,10 @@ export async function updateItem(formData: FormData) {
     return;
   }
 
+  // Refresh prices in draft quotes that contain this item
+  const { refreshQuoteItemPrices } = await import("@/app/actions/quotes");
+  await refreshQuoteItemPrices(itemId);
+
   revalidatePath("/");
 }
 

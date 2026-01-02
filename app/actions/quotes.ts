@@ -395,3 +395,53 @@ export async function searchInventoryItems(
 
   return itemsWithAvailability;
 }
+
+export async function refreshQuoteItemPrices(itemId: string) {
+  // Get current item price
+  const { data: item, error: itemError } = await supabase
+    .from("inventory_items")
+    .select("price")
+    .eq("id", itemId)
+    .eq("tenant_id", tenantId)
+    .single();
+
+  if (itemError || !item) {
+    console.error("[refreshQuoteItemPrices] Error fetching item:", itemError);
+    return;
+  }
+
+  // Fetch all draft quote IDs
+  const { data: draftQuotes, error: quotesError } = await supabase
+    .from("quotes")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("status", "draft");
+
+  if (quotesError) {
+    console.error("[refreshQuoteItemPrices] Error fetching draft quotes:", quotesError);
+    return;
+  }
+
+  if (!draftQuotes || draftQuotes.length === 0) {
+    return; // No draft quotes to update
+  }
+
+  const draftQuoteIds = draftQuotes.map((q) => q.id);
+
+  // Update prices for all quote items in draft quotes that use this item
+  const { error } = await supabase
+    .from("quote_items")
+    .update({ unit_price_snapshot: item.price })
+    .in("quote_id", draftQuoteIds)
+    .eq("item_id", itemId);
+
+  if (error) {
+    console.error("[refreshQuoteItemPrices] Error updating quote item prices:", error);
+  } else {
+    // Revalidate quote pages
+    revalidatePath("/quotes");
+    for (const quoteId of draftQuoteIds) {
+      revalidatePath(`/quotes/${quoteId}`);
+    }
+  }
+}
