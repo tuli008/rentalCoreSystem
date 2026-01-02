@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   DndContext,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
   useDroppable,
   PointerSensor,
   useSensor,
@@ -56,6 +58,7 @@ export default function QuoteDetailPage({
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [draggedItem, setDraggedItem] = useState<any>(null);
+  const [activeDraggedItem, setActiveDraggedItem] = useState<any>(null);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [quantityModalItem, setQuantityModalItem] = useState<any>(null);
   const [quantityModalQuantity, setQuantityModalQuantity] = useState("1");
@@ -63,6 +66,8 @@ export default function QuoteDetailPage({
   const [itemAvailabilities, setItemAvailabilities] = useState<
     Map<string, ItemAvailabilityBreakdown>
   >(new Map());
+  const [isLoadingAvailabilities, setIsLoadingAvailabilities] = useState(true);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor));
   // Local quantity state for instant UI updates (quoteItemId -> quantity string)
@@ -86,35 +91,57 @@ export default function QuoteDetailPage({
   // Fetch availability breakdowns for all items with quote context for date-aware calculation
   useEffect(() => {
     const fetchAvailabilities = async () => {
+      // Ensure loading state is set immediately
+      setIsLoadingAvailabilities(true);
       const availMap = new Map<string, ItemAvailabilityBreakdown>();
-      for (const item of quote.items) {
+      
+      // Fetch availability for all items
+      const promises = quote.items.map(async (item) => {
         try {
           const breakdown = await getItemAvailabilityBreakdown(item.item_id, {
             quoteId: quote.id,
             startDate: quote.start_date,
             endDate: quote.end_date,
           });
-          availMap.set(item.item_id, breakdown);
+          return { itemId: item.item_id, breakdown };
         } catch (error) {
           console.error(
             `Error fetching availability breakdown for item ${item.item_id}:`,
             error,
           );
+          return { itemId: item.item_id, breakdown: null };
         }
-      }
+      });
+      
+      // Wait for all availability data to load
+      const results = await Promise.all(promises);
+      results.forEach(({ itemId, breakdown }) => {
+        if (breakdown) {
+          availMap.set(itemId, breakdown);
+        }
+      });
+      
+      // Only set loading to false after all data is loaded
       setItemAvailabilities(availMap);
+      setIsLoadingAvailabilities(false);
     };
 
     if (quote.items.length > 0) {
       fetchAvailabilities();
     } else {
       setItemAvailabilities(new Map());
+      setIsLoadingAvailabilities(false);
     }
   }, [quote.items, quote.id, quote.start_date, quote.end_date]);
 
   // Calculate event-level risk indicator (using local quantities for real-time updates)
+  // Only calculate when availability data is loaded to prevent incorrect risk level display
   const riskLevel = useMemo<RiskLevel>(() => {
     if (quote.items.length === 0) return "green";
+    // Don't calculate risk if availability data isn't loaded yet
+    if (isLoadingAvailabilities || itemAvailabilities.size === 0) {
+      return "green"; // Default to green while loading
+    }
     return calculateQuoteRisk(
       quote.items.map((item) => {
         // Use local quantity if available, otherwise fall back to server quantity
@@ -130,7 +157,7 @@ export default function QuoteDetailPage({
       }),
       itemAvailabilities,
     );
-  }, [quote.items, itemAvailabilities, localQuantities]);
+  }, [quote.items, itemAvailabilities, localQuantities, isLoadingAvailabilities]);
 
   const handleAddItem = async (
     itemId: string,
@@ -142,38 +169,48 @@ export default function QuoteDetailPage({
     const existingItem = quote.items.find((item) => item.item_id === itemId);
 
     if (existingItem) {
-      // Item exists: increment quantity using local quantity if available
-      const localQuantityStr = localQuantities.get(existingItem.id);
-      const currentQuantity = localQuantityStr
-        ? parseInt(localQuantityStr, 10) || 0
-        : existingItem.quantity;
-      const newQuantity = currentQuantity + quantity;
+      // Item already exists - defer all UI updates to avoid flickering
+      setTimeout(() => {
+        // Set highlight state
+        setHighlightedItemId(existingItem.id);
+        
+        // Scroll to the existing item
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const itemElement = document.getElementById(`quote-item-${existingItem.id}`);
+            if (itemElement) {
+              itemElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }, 100);
+        });
+        
+        // Remove highlight after animation completes
+        setTimeout(() => {
+          setHighlightedItemId(null);
+        }, 2000);
+        
+        // Show message last, after all visual updates
+        setTimeout(() => {
+          alert(
+            `"${itemName}" is already in the quote. Please update the quantity of the existing item instead.`
+          );
+        }, 300);
+      }, 100);
+      return;
+    }
+    
+    // Item doesn't exist: create new quote_item
+    const formData = new FormData();
+    formData.append("quote_id", quote.id);
+    formData.append("item_id", itemId);
+    formData.append("quantity", quantity.toString());
+    formData.append("unit_price", unitPrice.toString());
 
-      const formData = new FormData();
-      formData.append("quote_item_id", existingItem.id);
-      formData.append("quantity", newQuantity.toString());
-      formData.append("quote_id", quote.id);
-
-      const result = await updateQuoteItem(formData);
-      if (result.success) {
-        router.refresh();
-      } else if (result.error) {
-        alert(result.error);
-      }
-    } else {
-      // Item doesn't exist: create new quote_item
-      const formData = new FormData();
-      formData.append("quote_id", quote.id);
-      formData.append("item_id", itemId);
-      formData.append("quantity", quantity.toString());
-      formData.append("unit_price", unitPrice.toString());
-
-      const result = await addQuoteItem(formData);
-      if (result.success) {
-        router.refresh();
-      } else if (result.error) {
-        alert(result.error);
-      }
+    const result = await addQuoteItem(formData);
+    if (result.success) {
+      router.refresh();
+    } else if (result.error) {
+      alert(result.error);
     }
   };
 
@@ -283,8 +320,19 @@ export default function QuoteDetailPage({
     setIsConfirming(false);
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const itemData = active.data.current;
+    if (itemData?.type === "inventory-item" && itemData?.item) {
+      setActiveDraggedItem(itemData.item);
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    
+    // Clear active dragged item immediately to remove overlay
+    setActiveDraggedItem(null);
 
     if (!over) return;
 
@@ -292,13 +340,55 @@ export default function QuoteDetailPage({
     if (over.id === "quote-drop-zone") {
       const itemData = active.data.current;
       if (itemData?.type === "inventory-item" && itemData?.item) {
-        // Open quantity selector modal for the dragged item (same as clicking "Add")
-        setQuantityModalItem(itemData.item);
-        setQuantityModalPrice(itemData.item.price.toFixed(2));
-        setQuantityModalQuantity("1");
-        setShowQuantityModal(true);
-        // Close the add item modal if it's open
-        setShowAddItemModal(false);
+        const draggedItemId = itemData.item.id;
+        
+        // Check if this item already exists in the quote
+        const existingItem = quote.items.find(
+          (quoteItem) => quoteItem.item_id === draggedItemId
+        );
+        
+        if (existingItem) {
+          // Item already exists - defer all UI updates until after drag overlay is cleared
+          // Use double requestAnimationFrame to ensure drag overlay is fully removed
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              // Set highlight state
+              setHighlightedItemId(existingItem.id);
+              
+              // Scroll to the existing item after highlight is set
+              setTimeout(() => {
+                const itemElement = document.getElementById(`quote-item-${existingItem.id}`);
+                if (itemElement) {
+                  itemElement.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+              }, 50);
+              
+              // Remove highlight after animation completes
+              setTimeout(() => {
+                setHighlightedItemId(null);
+              }, 2000);
+              
+              // Show message last, after all visual updates are complete
+              setTimeout(() => {
+                alert(
+                  `"${itemData.item.name}" is already in the quote. Please update the quantity of the existing item instead.`
+                );
+              }, 400);
+            });
+          });
+          return;
+        }
+        
+        // Item doesn't exist - proceed with adding it
+        // Defer modal opening to ensure smooth transition
+        requestAnimationFrame(() => {
+          setQuantityModalItem(itemData.item);
+          setQuantityModalPrice(itemData.item.price.toFixed(2));
+          setQuantityModalQuantity("1");
+          setShowQuantityModal(true);
+          // Close the add item modal if it's open
+          setShowAddItemModal(false);
+        });
       }
     }
   };
@@ -361,7 +451,11 @@ export default function QuoteDetailPage({
   const isReadOnly = quote.status === "accepted";
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext 
+      sensors={sensors} 
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <div className="min-h-screen bg-gray-50 flex flex-row flex-nowrap w-full">
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto min-w-0 order-1">
@@ -380,8 +474,8 @@ export default function QuoteDetailPage({
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">
                   {quote.name}
                 </h1>
-                {/* Event-level risk indicator */}
-                {quote.items.length > 0 && (
+                {/* Event-level risk indicator - only show when availability data is loaded */}
+                {quote.items.length > 0 && !isLoadingAvailabilities && (
                   <div
                     className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap ${
                       riskLevel === "green"
@@ -455,6 +549,14 @@ export default function QuoteDetailPage({
 
           {quote.items.length === 0 ? (
             <QuoteDropZone isEmpty={true} isReadOnly={isReadOnly} />
+          ) : isLoadingAvailabilities && !isReadOnly ? (
+            // Show loading state while fetching availability data (only for draft quotes)
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-600">Loading availability data...</p>
+              </div>
+            </div>
           ) : isReadOnly ? (
             // Table format for accepted quotes
             <div className="overflow-x-auto">
@@ -504,15 +606,27 @@ export default function QuoteDetailPage({
           ) : (
             <div>
               <QuoteDropZone isEmpty={false} isReadOnly={isReadOnly} />
+              {/* Only render items when availability data is loaded to prevent flash of incorrect data */}
+              {isLoadingAvailabilities ? (
+                <div className="flex items-center justify-center py-12 mt-4">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-sm text-gray-600">Loading availability data...</p>
+                  </div>
+                </div>
+              ) : (
               <div className="mt-4 space-y-3">
               {quote.items.map((item) => {
-                const breakdown = itemAvailabilities.get(item.item_id) || {
-                  available: 0,
-                  reserved: 0,
-                  inTransit: 0,
-                  outOfService: 0,
-                  total: 0,
-                };
+                // Only get breakdown if data is loaded, otherwise use safe defaults
+                const breakdown = isLoadingAvailabilities
+                  ? null
+                  : (itemAvailabilities.get(item.item_id) || {
+                      available: 0,
+                      reserved: 0,
+                      inTransit: 0,
+                      outOfService: 0,
+                      total: 0,
+                    });
                 // Use local quantity if available, otherwise fall back to server quantity
                 const localQuantityStr = localQuantities.get(item.id);
                 const displayQuantity = localQuantityStr
@@ -523,17 +637,23 @@ export default function QuoteDetailPage({
                 const lineTotal =
                   displayQuantity * item.unit_price_snapshot * numberOfDays;
                 // Use effectiveAvailable if available (date-aware), otherwise fall back to available
-                const effectiveAvailable =
-                  breakdown.effectiveAvailable !== undefined
-                    ? breakdown.effectiveAvailable
-                    : breakdown.available;
-                const isOverAvailable = displayQuantity > effectiveAvailable;
+                // Only calculate if breakdown is loaded
+                const effectiveAvailable = breakdown
+                  ? (breakdown.effectiveAvailable !== undefined
+                      ? breakdown.effectiveAvailable
+                      : breakdown.available)
+                  : 0;
+                const isOverAvailable = breakdown ? displayQuantity > effectiveAvailable : false;
+                const isHighlighted = highlightedItemId === item.id;
 
                 // Full view for draft quotes
                 return (
                   <div
+                    id={`quote-item-${item.id}`}
                     key={item.id}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                    className={`p-4 bg-gray-50 rounded-lg border border-gray-200 transition-all ${
+                      isHighlighted ? "ring-2 ring-blue-500 ring-offset-2" : ""
+                    }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                       <div className="flex-1 min-w-0">
@@ -541,7 +661,7 @@ export default function QuoteDetailPage({
                           <h3 className="font-medium text-gray-900 truncate">
                             {item.item_name || "Unknown Item"}
                           </h3>
-                          {isOverAvailable && (
+                          {!isLoadingAvailabilities && isOverAvailable && (
                             <span
                               className={`px-2 py-0.5 text-xs rounded whitespace-nowrap ${
                                 effectiveAvailable === 0
@@ -648,7 +768,8 @@ export default function QuoteDetailPage({
                             × {numberOfDays} day{numberOfDays !== 1 ? "s" : ""}
                           </span>
                         </div>
-                        {/* Availability breakdown */}
+                        {/* Availability breakdown - only show when data is loaded */}
+                        {!isLoadingAvailabilities && breakdown && (
                         <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-500">
                           <span className="whitespace-nowrap">
                             <span className="font-medium text-gray-700">
@@ -703,6 +824,7 @@ export default function QuoteDetailPage({
                             {breakdown.total}
                           </span>
                         </div>
+                        )}
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-4 sm:flex-col sm:items-end">
                         <div className="text-right sm:text-right">
@@ -737,6 +859,7 @@ export default function QuoteDetailPage({
                 );
               })}
               </div>
+              )}
             </div>
           )}
         </div>
@@ -999,6 +1122,53 @@ export default function QuoteDetailPage({
           </div>
         </div>
       )}
+      
+      {/* Drag Overlay - shows dragged item above all other elements */}
+      <DragOverlay zIndex={9999} dropAnimation={null}>
+        {activeDraggedItem ? (
+          <div className="p-4 bg-white rounded-lg shadow-2xl border-2 border-blue-500 w-80 pointer-events-none">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-1">
+                  <svg
+                    className="w-4 h-4 text-gray-400 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8h16M4 16h16"
+                    />
+                  </svg>
+                  <span className="font-medium text-gray-900">{activeDraggedItem.name}</span>
+                  {activeDraggedItem.group_name && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                      {activeDraggedItem.group_name}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-sm text-gray-600 ml-7">
+                  <span>
+                    Available:{" "}
+                    <span className="font-mono text-gray-700">
+                      {activeDraggedItem.effectiveAvailable ?? activeDraggedItem.available ?? 0} / {activeDraggedItem.total || 0}
+                    </span>
+                  </span>
+                  <span>
+                    Rate:{" "}
+                    <span className="font-semibold text-gray-900">
+                      ${activeDraggedItem.price.toFixed(2)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

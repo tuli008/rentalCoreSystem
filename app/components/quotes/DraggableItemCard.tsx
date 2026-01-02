@@ -47,7 +47,8 @@ export default function DraggableItemCard({
 
   const style = {
     transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.2 : 1,
+    transition: isDragging ? undefined : "opacity 0.15s ease",
   };
 
   const isLowStock = effectiveAvailable === 0;
