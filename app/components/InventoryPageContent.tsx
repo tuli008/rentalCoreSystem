@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { InventoryGroup } from "@/lib/inventory";
 import SortableGroupsList from "./SortableGroupsList";
 import InventorySidebar from "./InventorySidebar";
@@ -53,18 +53,6 @@ export default function InventoryPageContent({
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [pageSize, setPageSize] = useState<number>(2);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  // Detect desktop vs mobile
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-    
-    checkIsDesktop();
-    window.addEventListener('resize', checkIsDesktop);
-    return () => window.removeEventListener('resize', checkIsDesktop);
-  }, []);
 
   // Calculate total items across all groups
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
@@ -84,10 +72,19 @@ export default function InventoryPageContent({
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 w-full flex flex-col lg:flex-row" style={{ overflowX: 'auto', minWidth: 0 }}>
+      {/* Left Sidebar (Desktop) */}
+      <div className="hidden lg:block flex-shrink-0">
+        <InventorySidebar
+          onItemSelect={handleItemSelect}
+          groups={groupsForSidebar}
+          variant="desktop"
+        />
+      </div>
+
       {/* Main Content Area */}
-      <div className={`w-full ${isDesktop ? 'lg:mr-96' : ''}`}>
-        <div className="w-full max-w-7xl mx-auto p-4 sm:p-8">
+      <div className="flex-1 min-w-0 overflow-y-auto" style={{ overflowX: 'auto', minWidth: 0, width: '100%' }}>
+        <div className="w-full max-w-7xl mx-auto p-4 sm:p-8" style={{ overflow: 'visible', minWidth: 0, width: '100%', maxWidth: '100%' }}>
           {/* Header with Toolbar */}
           <div className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -185,13 +182,13 @@ export default function InventoryPageContent({
                     Page size:
                   </label>
                   <div className="flex rounded-md border border-gray-300 overflow-hidden">
-                    {[20, 50, 100].map((size) => (
+                    {[2, 20, 50, 100].map((size, index) => (
                       <button
                         key={size}
                         type="button"
                         onClick={() => setPageSize(size)}
                         className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                          size === 20 ? "" : "border-l border-gray-300"
+                          index === 0 ? "" : "border-l border-gray-300"
                         } ${
                           pageSize === size
                             ? "bg-blue-600 text-white"
@@ -228,17 +225,6 @@ export default function InventoryPageContent({
           />
         </div>
       </div>
-
-      {/* Right Sidebar (Desktop) - Only render on desktop screens */}
-      {isDesktop && (
-        <div className="fixed right-0 top-12 bottom-0 w-96 z-40 hidden lg:block">
-          <InventorySidebar
-            onItemSelect={handleItemSelect}
-            groups={groupsForSidebar}
-            variant="desktop"
-          />
-        </div>
-      )}
 
       {/* Filters Drawer (Mobile) */}
       {isMobileFiltersOpen && (

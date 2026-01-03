@@ -855,12 +855,13 @@ export default function InventoryGroupCard({
   }, [localItem, units, stock]);
 
   return (
-    <div className="mb-10 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2 flex-1">
+    <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6" style={{ overflow: 'visible', minWidth: 0, width: '100%' }}>
+      {/* Group Header */}
+      <div className="flex items-center justify-between gap-3 mb-4 relative" style={{ overflow: 'visible' }}>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-1 hover:bg-gray-100 rounded-md transition-colors flex-shrink-0"
             aria-label={isCollapsed ? "Expand group" : "Collapse group"}
           >
             <svg
@@ -879,57 +880,64 @@ export default function InventoryGroupCard({
               />
             </svg>
           </button>
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
             {group.name}
           </h2>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-500 flex-shrink-0">
             ({items.length} {items.length === 1 ? "item" : "items"})
           </span>
         </div>
+        {/* Group Menu (3-dot) */}
         {!isUncategorized && (
-          <div ref={groupMenuRef} className="relative">
+          <div ref={groupMenuRef} className="relative flex-shrink-0 z-10">
             <button
-              onClick={() => setShowGroupMenu(!showGroupMenu)}
-              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowGroupMenu(!showGroupMenu);
+              }}
+              className="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300"
               aria-label="Group options"
+              type="button"
+              style={{ minWidth: '32px', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <svg
-                className="w-5 h-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
+                className="w-5 h-5 text-gray-700"
+                fill="currentColor"
                 viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                />
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="19" r="2" />
               </svg>
             </button>
             {showGroupMenu && (
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50">
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-[100]">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setShowRenameGroupModal(true);
                     setRenameGroupName(group.name);
-                    setRenameGroupError(null); // Clear any previous errors
+                    setRenameGroupError(null);
                     setShowGroupMenu(false);
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  type="button"
                 >
                   Rename group
                 </button>
-          <button
-            onClick={() => {
-              setDeleteError(null);
-              setShowDeleteGroupModal(true);
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteError(null);
+                    setShowDeleteGroupModal(true);
                     setShowGroupMenu(false);
-            }}
+                  }}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-          >
+                  type="button"
+                >
                   Delete group
-          </button>
+                </button>
               </div>
             )}
           </div>
@@ -1003,8 +1011,9 @@ export default function InventoryGroupCard({
           collisionDetection={closestCenter}
           onDragEnd={handleItemDragEnd}
         >
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[800px]">
+          <div className="w-full" style={{ overflowX: 'auto', minWidth: 0 }}>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse min-w-[800px]">
               <thead>
                 <tr className="border-b-2 border-gray-300">
                   <th className="w-4 py-2 px-3 sm:px-4"></th>
@@ -1048,64 +1057,68 @@ export default function InventoryGroupCard({
                   ))}
                 </tbody>
               </SortableContext>
-            </table>
-          </div>
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 px-3 sm:px-4 py-3 bg-gray-50 rounded-md border border-gray-200">
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-medium text-gray-900">{startIndex + 1}–{Math.min(endIndex, totalItems)}</span> of{" "}
-                <span className="font-medium text-gray-900">{totalItems}</span> items
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          currentPage === pageNum
-                            ? "bg-blue-600 text-white"
-                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+              </table>
+            </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-4 w-full bg-gray-50 rounded-md border border-gray-200 px-2 sm:px-3 py-2 sm:py-3" style={{ overflow: 'visible', minWidth: 0, width: '100%' }}>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
+                <div className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                  Showing <span className="font-medium text-gray-900">{startIndex + 1}–{Math.min(endIndex, totalItems)}</span> of{" "}
+                  <span className="font-medium text-gray-900">{totalItems}</span> items
                 </div>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
+                <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap justify-center">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum: number;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                            currentPage === pageNum
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
-          )}
+            )}
+          </div>
         </DndContext>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[800px]">
+        <div className="w-full" style={{ overflowX: 'auto', minWidth: 0 }}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b-2 border-gray-300">
                 <th className="w-4 py-3 px-3 sm:px-4"></th>
@@ -1177,56 +1190,59 @@ export default function InventoryGroupCard({
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
           {/* Pagination Controls for non-mounted version */}
           {totalPages > 1 && (
-            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 px-3 sm:px-4 py-3 bg-gray-50 rounded-md border border-gray-200">
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-medium text-gray-900">{startIndex + 1}–{Math.min(endIndex, totalItems)}</span> of{" "}
-                <span className="font-medium text-gray-900">{totalItems}</span> items
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          currentPage === pageNum
-                            ? "bg-blue-600 text-white"
-                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+            <div className="mt-4 w-full bg-gray-50 rounded-md border border-gray-200 px-2 sm:px-3 py-2 sm:py-3" style={{ overflow: 'visible', minWidth: 0, width: '100%' }}>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
+                <div className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                  Showing <span className="font-medium text-gray-900">{startIndex + 1}–{Math.min(endIndex, totalItems)}</span> of{" "}
+                  <span className="font-medium text-gray-900">{totalItems}</span> items
                 </div>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
+                <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap justify-center">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum: number;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                            currentPage === pageNum
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
           )}
