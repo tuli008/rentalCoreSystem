@@ -7,50 +7,13 @@ import type { Event } from "@/app/actions/events";
 
 interface EventsListPageProps {
   initialEvents: Event[];
-  createEvent: (formData: FormData) => Promise<{
-    success?: boolean;
-    error?: string;
-    eventId?: string;
-  }>;
 }
 
 export default function EventsListPage({
   initialEvents,
-  createEvent,
 }: EventsListPageProps) {
   const router = useRouter();
-  const [events, setEvents] = useState<Event[]>(initialEvents);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    start_date: "",
-    end_date: "",
-    location: "",
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsCreating(true);
-
-    const form = new FormData();
-    form.append("name", formData.name);
-    form.append("description", formData.description);
-    form.append("start_date", formData.start_date);
-    form.append("end_date", formData.end_date);
-    form.append("location", formData.location);
-
-    const result = await createEvent(form);
-
-    if (result.error) {
-      alert(result.error);
-      setIsCreating(false);
-    } else if (result.eventId) {
-      router.push(`/events/${result.eventId}`);
-      router.refresh();
-    }
-  };
+  const [events] = useState<Event[]>(initialEvents);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -78,141 +41,43 @@ export default function EventsListPage({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold !text-gray-900">Events</h1>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            {showCreateForm ? "Cancel" : "New Event"}
-          </button>
-        </div>
-
-        {/* Create Form */}
-        {showCreateForm && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold !text-gray-900 mb-4">
-              Create New Event
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Event Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.start_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, start_date: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    End Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, end_date: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={isCreating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isCreating ? "Creating..." : "Create Event"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setFormData({
-                      name: "",
-                      description: "",
-                      start_date: "",
-                      end_date: "",
-                      location: "",
-                    });
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold !text-gray-900">Events</h1>
+            <p className="mt-2 text-sm text-gray-600">
+              Events are automatically created when quotes are approved. Manage your events and track their progress.
+            </p>
           </div>
-        )}
 
-        {/* Events List */}
-        {events.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <p className="text-gray-500 mb-4">No events created yet.</p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Create your first event
-            </button>
-          </div>
+          {events.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No events</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Events are created automatically when quotes are accepted.
+              </p>
+              <div className="mt-6">
+                <Link
+                  href="/quotes"
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Go to Quotes
+                </Link>
+              </div>
+            </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">

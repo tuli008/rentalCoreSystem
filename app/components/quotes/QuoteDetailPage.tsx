@@ -26,6 +26,7 @@ import {
 } from "@/lib/quotes";
 import { generateQuotePDF } from "@/lib/pdfGenerator";
 import { confirmQuotation } from "@/app/actions/quotes";
+import { createEventForAcceptedQuote } from "@/app/actions/events";
 import AddItemModal from "./AddItemModal";
 import QuoteDropZone from "./QuoteDropZone";
 import QuoteSidebar from "./QuoteSidebar";
@@ -62,6 +63,8 @@ export default function QuoteDetailPage({
   const [quote, setQuote] = useState<QuoteWithItems>(initialQuote);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [hasEvent, setHasEvent] = useState(false);
   const [draggedItem, setDraggedItem] = useState<any>(null);
   const [activeDraggedItem, setActiveDraggedItem] = useState<any>(null);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
@@ -518,11 +521,54 @@ export default function QuoteDetailPage({
     const result = await confirmQuotation(formData);
     if (result.ok) {
       scheduleRefresh("confirm", 0);
-      showToast(result.message || "Quotation confirmed successfully!");
+      showToast(result.message || "Quotation confirmed successfully! Event created automatically.");
     } else {
       showToast(result.error || "Failed to confirm quotation.");
     }
     setIsConfirming(false);
+  };
+
+  // Check if event exists for this quote
+  const checkForEvent = async () => {
+    if (quote.status !== "accepted") {
+      setHasEvent(false);
+      return;
+    }
+
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data } = await supabase
+        .from("events")
+        .select("id")
+        .eq("quote_id", quote.id)
+        .single();
+
+      setHasEvent(!!data);
+    } catch (error) {
+      setHasEvent(false);
+    }
+  };
+
+  // Check for event when quote is accepted
+  useEffect(() => {
+    if (quote.status === "accepted") {
+      checkForEvent();
+    }
+  }, [quote.status, quote.id]);
+
+  const handleCreateEvent = async () => {
+    setIsCreatingEvent(true);
+    const result = await createEventForAcceptedQuote(quote.id);
+
+    if (result.error) {
+      showToast(result.error);
+    } else if (result.eventId) {
+      showToast("Event created successfully!");
+      setHasEvent(true);
+      router.push(`/events/${result.eventId}`);
+      router.refresh();
+    }
+    setIsCreatingEvent(false);
   };
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -1241,6 +1287,27 @@ export default function QuoteDetailPage({
                     </>
                   )}
                 </button>
+              </div>
+            )}
+            {quote.status === "accepted" && !hasEvent && (
+              <div className="pt-4 border-t border-gray-200 mt-4 flex gap-2">
+                <button
+                  onClick={handleCreateEvent}
+                  disabled={isCreatingEvent}
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50"
+                >
+                  {isCreatingEvent ? "Creating Event..." : "Create Event"}
+                </button>
+              </div>
+            )}
+            {quote.status === "accepted" && hasEvent && (
+              <div className="pt-4 border-t border-gray-200 mt-4 flex gap-2">
+                <Link
+                  href={`/events?quote=${quote.id}`}
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors text-center"
+                >
+                  View Event
+                </Link>
               </div>
             )}
           </div>

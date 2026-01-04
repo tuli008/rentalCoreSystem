@@ -19,21 +19,40 @@ export default function EventInventoryTab({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h2 className="text-lg font-semibold text-gray-900">
             Inventory Items
           </h2>
-          <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-            Add Items
-          </button>
+          <p className="mt-1 text-sm text-gray-500">
+            {event.quote_id
+              ? "Inventory is read-only and copied from the approved quote."
+              : "Items assigned to this event."}
+          </p>
         </div>
 
         {inventory.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">No inventory items added yet.</p>
-            <button className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium">
-              Add items from inventory
-            </button>
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+              />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              No inventory items
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {event.quote_id
+                ? "This event was created from a quote with no items."
+                : "No items have been added to this event yet."}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

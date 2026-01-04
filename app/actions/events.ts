@@ -79,6 +79,67 @@ export async function getEvents(): Promise<Event[]> {
 }
 
 /**
+ * Copy quote items to event inventory
+ */
+async function copyQuoteItemsToEvent(eventId: string, quoteId: string): Promise<boolean> {
+  try {
+    // Check if items already exist
+    const { data: existingItems } = await supabase
+      .from("event_inventory")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("tenant_id", tenantId)
+      .limit(1);
+
+    if (existingItems && existingItems.length > 0) {
+      // Items already exist, don't copy again
+      return true;
+    }
+
+    // Fetch all quote items
+    const { data: quoteItems, error: quoteItemsError } = await supabase
+      .from("quote_items")
+      .select("item_id, quantity, unit_price_snapshot")
+      .eq("quote_id", quoteId);
+
+    if (quoteItemsError) {
+      console.error("[copyQuoteItemsToEvent] Error fetching quote items:", quoteItemsError);
+      return false;
+    }
+
+    if (!quoteItems || quoteItems.length === 0) {
+      console.log("[copyQuoteItemsToEvent] No quote items to copy");
+      return true; // Not an error, just no items
+    }
+
+    // Insert all quote items into event_inventory
+    const eventInventoryItems = quoteItems.map((item) => ({
+      event_id: eventId,
+      item_id: item.item_id,
+      quantity: item.quantity,
+      unit_price_snapshot: item.unit_price_snapshot,
+      tenant_id: tenantId,
+      notes: null,
+    }));
+
+    const { error: inventoryError } = await supabase
+      .from("event_inventory")
+      .insert(eventInventoryItems);
+
+    if (inventoryError) {
+      console.error("[copyQuoteItemsToEvent] Error copying items to event inventory:", inventoryError);
+      return false;
+    }
+
+    console.log(`[copyQuoteItemsToEvent] Successfully copied ${quoteItems.length} items to event ${eventId}`);
+    return true;
+  } catch (error) {
+    console.error("[copyQuoteItemsToEvent] Unexpected error:", error);
+    return false;
+  }
+}
+
+/**
  * Get event with all related data
  */
 export async function getEventWithDetails(eventId: string): Promise<{
@@ -135,6 +196,49 @@ export async function getEventWithDetails(eventId: string): Promise<{
       return { event: null, inventory: [], crew: [], tasks: [] };
     }
 
+    const event = eventResult.data;
+
+    // If event has quote_id but no inventory items, copy from quote
+    if (event.quote_id && (!inventoryResult.data || inventoryResult.data.length === 0)) {
+      console.log(`[getEventWithDetails] Event ${eventId} has quote_id ${event.quote_id} but no inventory, copying items...`);
+      const copied = await copyQuoteItemsToEvent(eventId, event.quote_id);
+      
+      if (copied) {
+        // Re-fetch inventory after copying
+        const { data: updatedInventory } = await supabase
+          .from("event_inventory")
+          .select(
+            `
+            *,
+            inventory_items:item_id (
+              name
+            )
+          `,
+          )
+          .eq("event_id", eventId)
+          .eq("tenant_id", tenantId);
+
+        const inventory = (updatedInventory || []).map((item: any) => ({
+          ...item,
+          item_name: item.inventory_items?.name,
+        }));
+
+        const crew = (crewResult.data || []).map((member: any) => ({
+          ...member,
+          crew_member_name: member.crew_members?.name,
+          crew_member_email: member.crew_members?.email,
+          crew_member_contact: member.crew_members?.contact,
+        }));
+
+        return {
+          event,
+          inventory,
+          crew,
+          tasks: tasksResult.data || [],
+        };
+      }
+    }
+
     const inventory = (inventoryResult.data || []).map((item: any) => ({
       ...item,
       item_name: item.inventory_items?.name,
@@ -148,7 +252,7 @@ export async function getEventWithDetails(eventId: string): Promise<{
     }));
 
     return {
-      event: eventResult.data,
+      event,
       inventory,
       crew,
       tasks: tasksResult.data || [],
@@ -173,6 +277,7 @@ export async function createEvent(formData: FormData): Promise<{
   const endDate = String(formData.get("end_date") || "");
   const location = String(formData.get("location") || "").trim() || null;
   const quoteId = String(formData.get("quote_id") || "").trim() || null;
+  const statusParam = String(formData.get("status") || "").trim();
 
   if (!name || !startDate || !endDate) {
     return { error: "Name, start date, and end date are required" };
@@ -181,6 +286,9 @@ export async function createEvent(formData: FormData): Promise<{
   if (new Date(endDate) < new Date(startDate)) {
     return { error: "End date must be after start date" };
   }
+
+  // Use status from form if provided, otherwise use "confirmed" for quotes or "draft"
+  const eventStatus = statusParam || (quoteId ? "confirmed" : "draft");
 
   try {
     const { data, error: insertError } = await supabase
@@ -192,7 +300,7 @@ export async function createEvent(formData: FormData): Promise<{
         end_date: endDate,
         location,
         quote_id: quoteId,
-        status: "draft",
+        status: eventStatus,
         tenant_id: tenantId,
       })
       .select("id")
@@ -203,8 +311,18 @@ export async function createEvent(formData: FormData): Promise<{
       return { error: "Failed to create event" };
     }
 
+    const eventId = data.id;
+
+    // If event is created from a quote, copy all quote items to event_inventory
+    if (quoteId) {
+      const copied = await copyQuoteItemsToEvent(eventId, quoteId);
+      if (!copied) {
+        console.error("[createEvent] Failed to copy quote items, but event was created");
+      }
+    }
+
     revalidatePath("/events");
-    return { success: true, eventId: data.id };
+    return { success: true, eventId };
   } catch (error) {
     console.error("[createEvent] Unexpected error:", error);
     return { error: "An unexpected error occurred" };
@@ -301,3 +419,53 @@ export async function deleteEvent(formData: FormData): Promise<{
   }
 }
 
+/**
+ * Create event for an already accepted quote
+ * Checks if event already exists before creating
+ */
+export async function createEventForAcceptedQuote(quoteId: string): Promise<{
+  success?: boolean;
+  error?: string;
+  eventId?: string;
+}> {
+  try {
+    // Check if quote exists and is accepted
+    const { getQuoteWithItems } = await import("@/lib/quotes");
+    const quote = await getQuoteWithItems(quoteId);
+
+    if (!quote) {
+      return { error: "Quote not found" };
+    }
+
+    if (quote.status !== "accepted") {
+      return { error: "Only accepted quotes can be converted to events" };
+    }
+
+    // Check if event already exists for this quote
+    const { data: existingEvent } = await supabase
+      .from("events")
+      .select("id")
+      .eq("quote_id", quoteId)
+      .eq("tenant_id", tenantId)
+      .single();
+
+    if (existingEvent) {
+      return { success: true, eventId: existingEvent.id };
+    }
+
+    // Create event (this will automatically copy quote items to event_inventory)
+    const eventFormData = new FormData();
+    eventFormData.append("name", quote.name);
+    eventFormData.append("description", `Event created from quote: ${quote.name}`);
+    eventFormData.append("start_date", quote.start_date);
+    eventFormData.append("end_date", quote.end_date);
+    eventFormData.append("quote_id", quoteId);
+    eventFormData.append("status", "confirmed");
+
+    const result = await createEvent(eventFormData);
+    return result;
+  } catch (error) {
+    console.error("[createEventForAcceptedQuote] Unexpected error:", error);
+    return { error: "An unexpected error occurred" };
+  }
+}

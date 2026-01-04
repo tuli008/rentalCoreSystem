@@ -1409,9 +1409,32 @@ export async function confirmQuotation(formData: FormData) {
     }
   }
 
+  // Automatically create Event from approved quote
+  try {
+    const { createEvent } = await import("@/app/actions/events");
+    const eventFormData = new FormData();
+    eventFormData.append("name", quote.name);
+    eventFormData.append("description", `Event created from quote: ${quote.name}`);
+    eventFormData.append("start_date", quote.start_date);
+    eventFormData.append("end_date", quote.end_date);
+    eventFormData.append("quote_id", quoteId);
+    eventFormData.append("status", "confirmed");
+
+    const eventResult = await createEvent(eventFormData);
+    if (eventResult.error) {
+      console.error("[confirmQuotation] Error creating event:", eventResult.error);
+      // Don't fail the quote confirmation if event creation fails
+      // Event can be created manually later if needed
+    }
+  } catch (error) {
+    console.error("[confirmQuotation] Unexpected error creating event:", error);
+    // Don't fail the quote confirmation if event creation fails
+  }
+
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/events"); // Revalidate events page
   revalidatePath("/"); // Revalidate inventory page
 
-  return { ok: true, message: "Quotation confirmed successfully!" };
+  return { ok: true, message: "Quotation confirmed successfully! Event created automatically." };
 }
