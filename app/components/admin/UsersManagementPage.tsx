@@ -30,7 +30,9 @@ export default function UsersManagementPage({
   updateUser,
   createUser,
 }: UsersManagementPageProps) {
-  const [users, setUsers] = useState(initialUsers);
+  // Ensure initialUsers is an array
+  const safeInitialUsers = Array.isArray(initialUsers) ? initialUsers : [];
+  const [users, setUsers] = useState(safeInitialUsers);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

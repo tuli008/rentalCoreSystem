@@ -32,6 +32,28 @@ export default function LoginPage() {
       }
 
       if (data.user) {
+        // Wait a moment for session to be established
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Try to create user in users table if missing (silently)
+        try {
+          await fetch("/api/auth/create-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              email: data.user.email,
+              name: data.user.user_metadata?.name || data.user.email?.split("@")[0] || "User",
+            }),
+          });
+        } catch (err) {
+          // Silently fail - user can use fix page if needed
+          console.log("[login] Could not auto-create user, but login succeeded");
+        }
+
+        // Wait a moment for session to be fully established
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
         // Redirect to home page after successful login
         router.push("/");
         router.refresh();

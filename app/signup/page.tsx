@@ -56,43 +56,88 @@ export default function SignUpPage() {
       }
 
       if (authData.user) {
-        // Wait a moment for the session to be established
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Wait for session to be established (longer wait for production)
+        await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        // Refresh the session to ensure it's available
-        await supabase.auth.refreshSession();
-
-        // Create user in users table via API
-        try {
-          const response = await fetch("/api/auth/create-user", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include", // Important: include cookies
-            body: JSON.stringify({
-              email: authData.user.email,
-              name: name.trim(),
-            }),
-          });
-
-          const responseData = await response.json();
-
-          if (!response.ok) {
-            console.error("[signup] API error:", responseData);
-            setError(responseData.error || "Account created but failed to set up permissions. Please contact support.");
-            setIsLoading(false);
-            return;
+        // Refresh the session multiple times to ensure it's available
+        let sessionEstablished = false;
+        for (let i = 0; i < 3; i++) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            sessionEstablished = true;
+            break;
           }
-
-          // Success - redirect to home
-          router.push("/");
-          router.refresh();
-        } catch (fetchError) {
-          console.error("[signup] Fetch error:", fetchError);
-          setError("Failed to complete signup. Please try logging in - your account may have been created.");
-          setIsLoading(false);
+          await supabase.auth.refreshSession();
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
+
+        if (!sessionEstablished) {
+          console.warn("[signup] Session not established, but continuing...");
+        }
+
+        // Create user in users table via API (with retry)
+        let userCreated = false;
+        let lastError = null;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const response = await fetch("/api/auth/create-user", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include", // Important: include cookies
+              body: JSON.stringify({
+                email: authData.user.email,
+                name: name.trim(),
+              }),
+            });
+
+            const responseData = await response.json();
+
+            if (response.ok) {
+              userCreated = true;
+              console.log("[signup] User created successfully:", responseData);
+              break;
+            } else {
+              lastError = responseData.error || "Unknown error";
+              console.error(`[signup] API error (attempt ${attempt + 1}):`, responseData);
+              
+              // If user already exists, that's okay
+              if (responseData.message?.includes("already exists")) {
+                userCreated = true;
+                break;
+              }
+              
+              // Wait before retry
+              if (attempt < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+              }
+            }
+          } catch (fetchError) {
+            lastError = fetchError instanceof Error ? fetchError.message : "Unknown error";
+            console.error(`[signup] Fetch error (attempt ${attempt + 1}):`, fetchError);
+            
+            // Wait before retry
+            if (attempt < 2) {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+          }
+        }
+
+        if (!userCreated) {
+          console.error("[signup] Failed to create user after retries:", lastError);
+          setError(
+            lastError || 
+            "Account created but failed to set up permissions. You can still log in and use the fix page at /admin/fix-user to complete setup."
+          );
+          setIsLoading(false);
+          return;
+        }
+
+        // Success - redirect to home
+        router.push("/");
+        router.refresh();
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");

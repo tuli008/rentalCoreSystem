@@ -32,25 +32,58 @@ export async function getCurrentUser() {
 export async function getCurrentUserRole(): Promise<"admin" | "user"> {
   const user = await getCurrentUser();
   
-  if (!user) {
+  if (!user || !user.email) {
     return "user"; // Default to user if not logged in
   }
 
   const supabase = await createServerSupabaseClient();
   
-  // Check users table for role
+  // Check users table for role (case-insensitive email match)
+  const userEmail = user.email?.toLowerCase().trim();
+  if (!userEmail) {
+    console.warn("[getCurrentUserRole] User has no email");
+    return "user";
+  }
+
   const { data: userData, error } = await supabase
     .from("users")
-    .select("role")
-    .eq("email", user.email)
-    .single();
+    .select("role, email")
+    .ilike("email", userEmail)
+    .maybeSingle();
 
-  if (error || !userData) {
+  if (error) {
+    // Log error for debugging (but don't expose to client)
+    console.error("[getCurrentUserRole] Error fetching user role:", {
+      email: user.email,
+      userEmail,
+      error: error.message,
+      code: error.code,
+    });
     // Fallback: check user metadata or default to user
     return (user.user_metadata?.role as "admin" | "user") || "user";
   }
 
-  return userData.role === "admin" ? "admin" : "user";
+  if (!userData) {
+    // User not found in users table - log for debugging
+    console.warn("[getCurrentUserRole] User not found in users table:", {
+      email: user.email,
+      userEmail,
+      userId: user.id,
+    });
+    // Fallback: check user metadata or default to user
+    return (user.user_metadata?.role as "admin" | "user") || "user";
+  }
+
+  console.log("[getCurrentUserRole] Found user in database:", {
+    email: user.email,
+    userEmail,
+    dbEmail: userData.email,
+    role: userData.role,
+    roleMatch: userData.role === "admin" ? "admin" : "user",
+  });
+
+  const finalRole = userData.role === "admin" ? "admin" : "user";
+  return finalRole;
 }
 
 /**

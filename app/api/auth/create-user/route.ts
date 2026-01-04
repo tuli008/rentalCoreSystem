@@ -33,20 +33,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, name } = body;
 
-    // Verify the email matches the authenticated user
-    if (user.email !== email) {
+    // Verify the email matches the authenticated user (case-insensitive)
+    if (user.email?.toLowerCase().trim() !== email.toLowerCase().trim()) {
+      console.error("[create-user] Email mismatch:", {
+        authEmail: user.email,
+        requestEmail: email,
+      });
       return NextResponse.json(
         { error: "Email mismatch" },
         { status: 400 }
       );
     }
 
-    // Check if user already exists in users table
+    // Check if user already exists in users table (case-insensitive)
     const { data: existingUser, error: checkError } = await supabase
       .from("users")
       .select("id, email, role")
-      .eq("email", email)
-      .single();
+      .ilike("email", email.toLowerCase().trim())
+      .maybeSingle();
 
     if (checkError && checkError.code !== "PGRST116") {
       // PGRST116 means no rows found, which is fine
@@ -66,12 +70,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create user in users table
+    // Create user in users table (normalize email to lowercase)
     const { data: newUser, error: insertError } = await supabase
       .from("users")
       .insert({
         tenant_id: DEFAULT_TENANT_ID,
-        email: email,
+        email: email.toLowerCase().trim(),
         name: name || user.email?.split("@")[0] || "User",
         role: DEFAULT_ROLE,
       })

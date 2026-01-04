@@ -28,6 +28,13 @@ export default function Navigation() {
     return () => subscription.unsubscribe();
   }, [supabase.auth]);
 
+  // Hide navigation on login/signup pages (check after hooks)
+  const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup");
+  
+  if (isAuthPage) {
+    return null;
+  }
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
