@@ -61,6 +61,13 @@ export async function createCrewMember(formData: FormData): Promise<{
   success?: boolean;
   error?: string;
 }> {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
+
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim() || null;
   const contact = String(formData.get("contact") || "").trim() || null;
@@ -184,6 +191,12 @@ export async function updateCrewLeaveStatus(formData: FormData): Promise<{
   success?: boolean;
   error?: string;
 }> {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
   const id = String(formData.get("id") || "");
   const onLeave = formData.get("on_leave") === "true" || formData.get("on_leave") === "on";
   const leaveStartDate = String(formData.get("leave_start_date") || "").trim() || null;
@@ -246,6 +259,12 @@ export async function deleteCrewMember(formData: FormData): Promise<{
   success?: boolean;
   error?: string;
 }> {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
   const id = String(formData.get("id") || "");
 
   if (!id) {

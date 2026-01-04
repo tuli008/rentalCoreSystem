@@ -2,13 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth";
 
 export async function createItem(
   formData: FormData,
 ): Promise<
   | { ok: true }
-  | { ok: false; error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR" }
+  | { ok: false; error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR" | "UNAUTHORIZED" }
 > {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { ok: false, error: "UNAUTHORIZED" };
+  }
+
   const name = String(formData.get("name") || "").trim();
   const groupId = String(formData.get("group_id"));
   const isSerialized = formData.get("is_serialized") === "on";
@@ -86,6 +94,13 @@ export async function createItem(
 }
 
 export async function updateItem(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
+
   const itemId = String(formData.get("item_id"));
   const name = String(formData.get("name") || "").trim();
   const price = Number(formData.get("price"));
@@ -114,6 +129,13 @@ export async function updateItem(formData: FormData) {
 }
 
 export async function reorderItems(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
+
   const itemOrdersJson = String(formData.get("item_orders") || "{}");
   const itemOrders = JSON.parse(itemOrdersJson) as Record<string, number>;
   const groupId = String(formData.get("group_id"));
@@ -146,6 +168,13 @@ export async function reorderItems(formData: FormData) {
 }
 
 export async function deleteItem(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
+
   const itemId = String(formData.get("item_id"));
 
   if (!itemId) return { error: "Item ID is required" };

@@ -2,8 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth";
 
 export async function updateUnitStatus(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
   const unitId = String(formData.get("unit_id"));
   const newStatus = String(formData.get("status"));
 

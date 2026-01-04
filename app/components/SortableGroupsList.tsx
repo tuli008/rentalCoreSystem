@@ -26,7 +26,7 @@ interface SortableGroupsListProps {
     | { ok: true }
     | {
         ok: false;
-        error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR";
+        error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR" | "UNAUTHORIZED";
       }
   >;
   updateItem: (formData: FormData) => Promise<void>;

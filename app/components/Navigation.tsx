@@ -1,17 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { createClientSupabaseClient } from "@/lib/supabase-client";
+import { useEffect, useState } from "react";
+import AdminLink from "./AdminLink";
 
 export default function Navigation() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const supabase = createClientSupabaseClient();
+
+  useEffect(() => {
+    // Get current user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserEmail(user?.email || null);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   const isActive = (path: string) => pathname === path;
 
   return (
     <nav className="bg-blue-600 border-b border-blue-700 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="h-12 flex items-center">
+        <div className="h-12 flex items-center justify-between">
           <div className="flex items-center gap-6 overflow-x-auto w-full">
             <Link
               href="/"
@@ -53,6 +81,20 @@ export default function Navigation() {
             >
               Events
             </Link>
+            <AdminLink />
+          </div>
+          <div className="flex items-center gap-4 ml-4">
+            {userEmail && (
+              <span className="text-sm text-blue-100 hidden sm:inline">
+                {userEmail}
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-sm font-medium text-blue-100 hover:text-white border border-blue-400 rounded-md hover:border-blue-300 transition-colors whitespace-nowrap"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </div>

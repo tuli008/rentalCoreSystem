@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { CrewMember } from "@/app/actions/crew";
+import { isAdminClient } from "@/lib/auth-client";
 
 interface CrewMembersPageProps {
   initialCrewMembers: CrewMember[];
@@ -22,6 +23,7 @@ interface CrewMembersPageProps {
     success?: boolean;
     error?: string;
   }>;
+  isAdmin?: boolean;
 }
 
 export default function CrewMembersPage({
@@ -30,11 +32,13 @@ export default function CrewMembersPage({
   updateCrewMember,
   deleteCrewMember,
   updateCrewLeaveStatus,
+  isAdmin: isAdminProp,
 }: CrewMembersPageProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [crewMembers, setCrewMembers] = useState(initialCrewMembers);
   const [showAddForm, setShowAddForm] = useState(false);
+  const isAdmin = isAdminProp ?? isAdminClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingLeaveId, setEditingLeaveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -225,7 +229,7 @@ export default function CrewMembersPage({
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Crew Members
             </h1>
-            {!showAddForm && (
+            {!showAddForm && isAdmin && (
               <button
                 onClick={() => {
                   setShowAddForm(true);
@@ -503,19 +507,21 @@ export default function CrewMembersPage({
                   <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">
                     Leave Status
                   </th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700 text-sm">
-                    Actions
-                  </th>
+                  {isAdmin && (
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700 text-sm">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {crewMembers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={isAdmin ? 6 : 5}
                       className="py-8 px-4 text-center text-gray-500"
                     >
-                      No crew members found. Add your first crew member above.
+                      No crew members found.{isAdmin && " Add your first crew member above."}
                     </td>
                   </tr>
                 ) : (
@@ -571,28 +577,30 @@ export default function CrewMembersPage({
                           <span className="text-xs text-gray-400">Available</span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleEditLeave(member)}
-                            className="px-3 py-1.5 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-md transition-colors"
-                          >
-                            Leave
-                          </button>
-                          <button
-                            onClick={() => handleEdit(member)}
-                            className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(member.id, member.name)}
-                            className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleEditLeave(member)}
+                              className="px-3 py-1.5 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-md transition-colors"
+                            >
+                              Leave
+                            </button>
+                            <button
+                              onClick={() => handleEdit(member)}
+                              className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(member.id, member.name)}
+                              className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

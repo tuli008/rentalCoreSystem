@@ -2,8 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth";
 
 export async function createGroup(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
+
   const name = String(formData.get("name") || "").trim();
   if (!name) return;
 
@@ -43,6 +51,13 @@ export async function createGroup(formData: FormData) {
 }
 
 export async function reorderGroups(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
+
   const groupOrdersJson = String(formData.get("group_orders") || "{}");
   const groupOrders = JSON.parse(groupOrdersJson) as Record<string, number>;
 
@@ -70,6 +85,13 @@ export async function reorderGroups(formData: FormData) {
 }
 
 export async function deleteGroup(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
+
   const groupId = String(formData.get("group_id"));
   const tenantId = "11111111-1111-1111-1111-111111111111";
 
@@ -283,7 +305,14 @@ export async function deleteGroup(formData: FormData) {
   return { success: true };
 }
 
-export async function updateGroup(formData: FormData) {
+export async function updateGroup(formData: FormData): Promise<{ error?: string; success?: boolean }> {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
+
   const groupId = String(formData.get("group_id"));
   const name = String(formData.get("name") || "").trim();
   const tenantId = "11111111-1111-1111-1111-111111111111";

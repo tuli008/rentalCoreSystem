@@ -2,8 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth";
 
 export async function updateStock(formData: FormData) {
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
   const itemId = String(formData.get("item_id"));
   const totalQuantity = Number(formData.get("total_quantity"));
   const outOfServiceQuantity = Number(formData.get("out_of_service_quantity"));

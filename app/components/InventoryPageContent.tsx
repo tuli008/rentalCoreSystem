@@ -14,7 +14,7 @@ interface InventoryPageContentProps {
     | { ok: true }
     | {
         ok: false;
-        error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR";
+        error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR" | "UNAUTHORIZED";
       }
   >;
   updateItem: (formData: FormData) => Promise<void>;
@@ -32,6 +32,7 @@ interface InventoryPageContentProps {
   updateGroup?: (
     formData: FormData,
   ) => Promise<{ error?: string; success?: boolean }>;
+  isAdmin?: boolean;
 }
 
 export default function InventoryPageContent({
@@ -47,6 +48,7 @@ export default function InventoryPageContent({
   deleteItem,
   deleteGroup,
   updateGroup,
+  isAdmin = false,
 }: InventoryPageContentProps) {
   const [itemIdToOpen, setItemIdToOpen] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("a-z");
@@ -72,29 +74,16 @@ export default function InventoryPageContent({
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50 w-full flex flex-col lg:flex-row" style={{ overflowX: 'auto', minWidth: 0 }}>
-      {/* Left Sidebar (Desktop) */}
-      <div className="hidden lg:block flex-shrink-0">
-        <InventorySidebar
-          onItemSelect={handleItemSelect}
-          groups={groupsForSidebar}
-          variant="desktop"
-        />
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 min-w-0 overflow-y-auto" style={{ overflowX: 'auto', minWidth: 0, width: '100%' }}>
-        <div className="w-full max-w-7xl mx-auto p-4 sm:p-8" style={{ overflow: 'visible', minWidth: 0, width: '100%', maxWidth: '100%' }}>
+    <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
+      {/* Main Content Area - with right margin on desktop for sidebar */}
+      <div className="w-full lg:mr-96">
+        <div className="w-full max-w-7xl mx-auto p-4 sm:p-8">
           {/* Header with Toolbar */}
           <div className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 Inventory Items
               </h1>
-              {/* Debug marker to confirm latest UI is loaded */}
-              <span className="text-xs text-gray-400 font-mono">
-                mobile-ui:v6
-              </span>
             </div>
             
             {/* Toolbar */}
@@ -182,13 +171,13 @@ export default function InventoryPageContent({
                     Page size:
                   </label>
                   <div className="flex rounded-md border border-gray-300 overflow-hidden">
-                    {[2, 20, 50, 100].map((size, index) => (
+                    {[20, 50, 100].map((size) => (
                       <button
                         key={size}
                         type="button"
                         onClick={() => setPageSize(size)}
                         className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                          index === 0 ? "" : "border-l border-gray-300"
+                          size === 20 ? "" : "border-l border-gray-300"
                         } ${
                           pageSize === size
                             ? "bg-blue-600 text-white"
@@ -224,6 +213,15 @@ export default function InventoryPageContent({
             pageSize={pageSize}
           />
         </div>
+      </div>
+
+      {/* Right Sidebar (Desktop) */}
+      <div className="fixed right-0 top-12 bottom-0 w-96 z-40 hidden lg:block border-l border-gray-200 bg-white overflow-y-auto">
+        <InventorySidebar
+          onItemSelect={handleItemSelect}
+          groups={groupsForSidebar}
+          variant="desktop"
+        />
       </div>
 
       {/* Filters Drawer (Mobile) */}

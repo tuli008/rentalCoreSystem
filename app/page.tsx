@@ -3,12 +3,20 @@ import { supabase } from "@/lib/supabase";
 import { getInventoryData } from "@/lib/inventory";
 import InventoryPageContent from "./components/InventoryPageContent";
 import { updateGroup } from "./actions/groups";
+import { requireAdmin } from "@/lib/auth";
 
 /* =========================
    CREATE GROUP
 ========================= */
 async function createGroup(formData: FormData) {
   "use server";
+
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
 
   const name = String(formData.get("name") || "").trim();
   if (!name) return;
@@ -56,9 +64,16 @@ async function createItem(
   formData: FormData,
 ): Promise<
   | { ok: true }
-  | { ok: false; error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR" }
+  | { ok: false; error: "DUPLICATE_NAME" | "VALIDATION_ERROR" | "SERVER_ERROR" | "UNAUTHORIZED" }
 > {
   "use server";
+
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { ok: false, error: "UNAUTHORIZED" };
+  }
 
   const name = String(formData.get("name") || "").trim();
   const groupId = String(formData.get("group_id"));
@@ -193,6 +208,13 @@ async function createItem(
 async function reorderGroups(formData: FormData) {
   "use server";
 
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
+
   const groupOrdersJson = String(formData.get("group_orders") || "{}");
   const groupOrders = JSON.parse(groupOrdersJson) as Record<string, number>;
 
@@ -225,6 +247,13 @@ async function reorderGroups(formData: FormData) {
 ========================= */
 async function reorderItems(formData: FormData) {
   "use server";
+
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
 
   const itemOrdersJson = String(formData.get("item_orders") || "{}");
   const itemOrders = JSON.parse(itemOrdersJson) as Record<string, number>;
@@ -264,6 +293,13 @@ async function reorderItems(formData: FormData) {
 async function updateItem(formData: FormData) {
   "use server";
 
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
+
   const itemId = String(formData.get("item_id"));
   const name = String(formData.get("name") || "").trim();
   const price = Number(formData.get("price"));
@@ -296,6 +332,13 @@ async function updateItem(formData: FormData) {
 ========================= */
 async function updateStock(formData: FormData) {
   "use server";
+
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
 
   const itemId = String(formData.get("item_id"));
   const totalQuantity = Number(formData.get("total_quantity"));
@@ -378,6 +421,13 @@ async function updateStock(formData: FormData) {
 async function addMaintenanceLog(formData: FormData) {
   "use server";
 
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
+
   const itemId = String(formData.get("item_id"));
   const note = String(formData.get("note") || "").trim();
 
@@ -406,6 +456,13 @@ async function addMaintenanceLog(formData: FormData) {
 ========================= */
 async function updateUnitStatus(formData: FormData) {
   "use server";
+
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return;
+  }
 
   const unitId = String(formData.get("unit_id"));
   const newStatus = String(formData.get("status"));
@@ -437,6 +494,13 @@ async function updateUnitStatus(formData: FormData) {
 ========================= */
 async function deleteItem(formData: FormData) {
   "use server";
+
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
 
   const itemId = String(formData.get("item_id"));
 
@@ -502,6 +566,13 @@ async function deleteItem(formData: FormData) {
 ========================= */
 async function deleteGroup(formData: FormData) {
   "use server";
+
+  // Require admin access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
 
   const groupId = String(formData.get("group_id"));
   const tenantId = "11111111-1111-1111-1111-111111111111";
