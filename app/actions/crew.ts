@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { supabase } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { requireAdmin } from "@/lib/auth";
 
 const tenantId = "11111111-1111-1111-1111-111111111111";
 
@@ -24,6 +25,7 @@ export interface CrewMember {
  */
 export async function getCrewMembers(): Promise<CrewMember[]> {
   try {
+    const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("crew_members")
       .select("*")
@@ -87,6 +89,7 @@ export async function createCrewMember(formData: FormData): Promise<{
   }
 
   try {
+    const supabase = await createServerSupabaseClient();
     const { error: insertError } = await supabase.from("crew_members").insert({
       name,
       email,
@@ -148,7 +151,15 @@ export async function updateCrewMember(formData: FormData): Promise<{
     return { error: "Invalid email format" };
   }
 
+  // Require admin access
   try {
+    await requireAdmin();
+  } catch (error) {
+    return { error: "Unauthorized: Admin access required" };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
     const { error: updateError } = await supabase
       .from("crew_members")
       .update({
@@ -220,6 +231,7 @@ export async function updateCrewLeaveStatus(formData: FormData): Promise<{
   }
 
   try {
+    const supabase = await createServerSupabaseClient();
     const updateData: any = {
       on_leave: onLeave,
       leave_start_date: onLeave ? leaveStartDate : null,
@@ -272,6 +284,7 @@ export async function deleteCrewMember(formData: FormData): Promise<{
   }
 
   try {
+    const supabase = await createServerSupabaseClient();
     const { error: deleteError } = await supabase
       .from("crew_members")
       .delete()
